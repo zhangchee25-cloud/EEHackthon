@@ -42,7 +42,7 @@ macOS 默认启动 Playwright 安装的 Chromium；也可配置 `LEARN_BROWSER_E
 
 在真实 `backend/.env` 填写活动允许的平台 `MODEL_BASE_URL`、`MODEL_API_KEY`、`MODEL_NAME`，按平台选 `MODEL_API_STYLE=responses` 或 `chat_completions`。Base URL 使用根地址或 `/v1`，不要填 `/chat/completions`。环境变量优先；修改后重启服务。真实密钥只由后端读取，不放前端环境或交付包。
 
-`GET /api/health` 的 `modelConfigured=true` 仅表示配置齐全；模型是否可用以真实问答为准。`python -m backend --list-models` 只查询模型列表，不代替问答验收。默认 PDF 上限 **5 MB／20 页**，上下文预算 45,000 字符；超限明确失败，目录中的 `supported` 仅代表类型／已知大小预检。
+`GET /api/health` 的 `modelConfigured=true` 仅表示配置齐全；模型是否可用以真实问答为准。`python -m backend --list-models` 只查询模型列表，不代替问答验收。默认 PDF 上限 **100 MB，PDF 页数不限**，上下文预算 45,000 字符；超限明确失败，目录中的 `supported` 仅代表类型／已知大小预检。
 
 ## 学校连接与接口接入
 
@@ -92,3 +92,5 @@ python -m backend.verify_live --pdf examples/signals-systems-demo.pdf
 课程模型验收见 `python -m backend.verify_school_course_qa --help`。只在独立本地副本中检索两份已导入PDF的必要片段，预算6500字符；运行前须本人授权将课程片段发送到配置平台。随后通过HTTP保存三张卡和三节点两条线，再重启测试服务核对恢复。私有报告与临时副本不进入源码包。
 
 `python -m backend.package_handoff` 在 **`backend/deliverables/learning-agent-backend.zip`** 生成 B 候选源码包与文件 SHA-256 清单，供集成人组装最终包。显式白名单仅含 `backend/` 源码、`examples/` 自制材料和 `docs/B-验收记录.md`；排除 `vendor/`、`data/`、真实 `.env`、报告、会话、日志、教师 PDF、frontend 和根文档。目标机重新安装依赖／浏览器并填写自己的配置。
+
+容量配置：`MAX_FILE_MB` 默认 100（可继续调大），PDF 不设页数或提取文字总量上限；旧 `MAX_PDF_PAGES` 已停用。解析超时默认 120 秒，可用 `PDF_PARSE_TIMEOUT_SECONDS` 调整。单文件问答仍有上下文预算，课程问答使用相关片段检索；导入成功不代表模型每次读取全部页面。

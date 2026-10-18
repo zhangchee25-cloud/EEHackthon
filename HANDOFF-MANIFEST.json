@@ -1,8 +1,8 @@
 [
   {
     "path": "backend/.env.example",
-    "bytes": 753,
-    "sha256": "5811da60d3a8b30f712675dda3242424267fc46ddd7d21f8aaf486e27f2247ca"
+    "bytes": 850,
+    "sha256": "f5c71e4a07233877c9989d2b3a7d7a74fc5161ee33faea9ce0eb9d7a0fff791b"
   },
   {
     "path": "backend/__init__.py",
@@ -16,13 +16,13 @@
   },
   {
     "path": "backend/assemble_candidate.py",
-    "bytes": 5317,
-    "sha256": "004cd2d7cfcca85ec7a8af04582c09000853ea2f35378a7f4a655b74ab7b57d9"
+    "bytes": 5415,
+    "sha256": "8267c6d8ff6bd3abcdec513ef316fc69246d37cb48b6509dc345886675f5d499"
   },
   {
     "path": "backend/config.py",
-    "bytes": 3695,
-    "sha256": "ba94a8189aae869118b0637660e747615e27d675ccf4bee3d70086cc1801205e"
+    "bytes": 3743,
+    "sha256": "3b93d5bcf88d79bb983848db9bf7eaee553cbadf97053b07b3f9b74f2d0db323"
   },
   {
     "path": "backend/course_store.py",
@@ -46,8 +46,8 @@
   },
   {
     "path": "backend/learn.py",
-    "bytes": 17940,
-    "sha256": "598d0f037778b936cb9b445dade0c94fc4b413ab3e65e5f24b5d51d30175e1cb"
+    "bytes": 17984,
+    "sha256": "d943b83c3160fa77b4d56b30df46f5482c72eaaa175ce7319cffe958a24a5e3e"
   },
   {
     "path": "backend/make_demo.py",
@@ -66,13 +66,13 @@
   },
   {
     "path": "backend/pdf_worker.py",
-    "bytes": 1785,
-    "sha256": "60b5ee6e75fcb16c1ec3e477702698608b9efa6c408c37e937e60ad64ffa3b05"
+    "bytes": 1549,
+    "sha256": "e57469e4b9cf983e097c55b9803d06955763c28b60e189b3826b55cf3a3efc29"
   },
   {
     "path": "backend/README.md",
-    "bytes": 9230,
-    "sha256": "310b1b8e3c3fdcd23e12a524c35fa2bdce58b62108a2c014497b5ac6bff8152b"
+    "bytes": 9592,
+    "sha256": "d0ea6d576d0d338fa6cc090dd664cbc9dab7582b0bb89c49b1ce3df9f15b8bd7"
   },
   {
     "path": "backend/requirements-dev.txt",
@@ -91,8 +91,8 @@
   },
   {
     "path": "backend/service.py",
-    "bytes": 20321,
-    "sha256": "d2bc33ffb3267d97e29a3d9152e4b8e1194f7cc4ec8ae2c144233b63e32a159d"
+    "bytes": 20352,
+    "sha256": "926e13fb4292f81d1e067160c3858ed348cad2b81dc05f299da47ae4f513f4a2"
   },
   {
     "path": "backend/start.ps1",
@@ -116,8 +116,8 @@
   },
   {
     "path": "backend/tests/test_backend.py",
-    "bytes": 18715,
-    "sha256": "9bfb1c380b62b46262de18886022dff0594804d42f2835a778810c9be6fbe8a9"
+    "bytes": 20503,
+    "sha256": "6d342ca26e4fc49858684dc6ae85fdec2f8823c3f0b8d97db61479121d50345b"
   },
   {
     "path": "backend/tests/test_course_qa_extra.py",
@@ -126,8 +126,8 @@
   },
   {
     "path": "backend/tests/test_courses.py",
-    "bytes": 14333,
-    "sha256": "ef30de78745e2a73b297ca156a59ddfd36d7f8c33a6ff45f4d21047eadd0010b"
+    "bytes": 14973,
+    "sha256": "ecd338eb865cad1679a6f8c6c078cef64527a60b50916002b2b388326a3fb58b"
   },
   {
     "path": "backend/tests/test_learn_transport.py",
@@ -171,13 +171,13 @@
   },
   {
     "path": "docs/AB-本轮集成契约.md",
-    "bytes": 8891,
-    "sha256": "08dcb58780b6ff8b1ad2a32ecc3b618bded963183a2c8ffcba295a88ef78cb79"
+    "bytes": 8903,
+    "sha256": "feb02101a4c07e0ca9dd4555149125c6c9781867d2e1d57a36182c5382824436"
   },
   {
     "path": "docs/B-验收记录.md",
-    "bytes": 6447,
-    "sha256": "cbfba43aa2be56792052bfcd8f79097dd850f121fc4d46e893af59c76eed72cb"
+    "bytes": 6901,
+    "sha256": "12b4c5305b9eaa4d0b1ecdf1c6d48346f7f574853243c6cc1f71033c0fd18159"
   },
   {
     "path": "docs/FreeBBS接入顶层架构与预计代码结构.md",
@@ -291,13 +291,13 @@
   },
   {
     "path": "frontend/src/api.ts",
-    "bytes": 6451,
-    "sha256": "4d498ec6b705fb1ae13a80138e0fb6e5c08ff4db5478f9ce1e4e9c34a2722346"
+    "bytes": 6516,
+    "sha256": "2e1fe71ab2c079196a6b75048e2589dcacd0b798f64eb4ce7f9a5557f50bf098"
   },
   {
     "path": "frontend/src/App.tsx",
-    "bytes": 31930,
-    "sha256": "97617437fb9d2e84b62f3958d3c45b271c8f45fa822a61935108f62105487a8c"
+    "bytes": 32258,
+    "sha256": "a038705c36763158b57fb4d96f0be8619958b1503be577aea04b711f8589ebb6"
   },
   {
     "path": "frontend/src/components/CardsPanel.tsx",
@@ -316,8 +316,8 @@
   },
   {
     "path": "frontend/src/components/MaterialLibrary.tsx",
-    "bytes": 3035,
-    "sha256": "f445cfdbf6b4d6bb0b3963394cfc91d7ca2e6057fbf707fda1fc1a574df24716"
+    "bytes": 3116,
+    "sha256": "c004bdf059e7fbf1f2e5134bf5815b8e766b34106720564d23e80de291275f59"
   },
   {
     "path": "frontend/src/components/PdfReader.tsx",

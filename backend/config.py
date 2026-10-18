@@ -29,8 +29,8 @@ class Config:
     api_key: str = ""
     model: str = ""
     api_style: str = "chat_completions"
-    max_file_bytes: int = 5 * 1024 * 1024
-    max_pages: int = 20
+    max_file_bytes: int = 100 * 1024 * 1024
+    pdf_parse_timeout: float = 120.0
     max_context_chars: int = 45000
     max_question_chars: int = 4000
     model_timeout: float = 60.0
@@ -56,8 +56,8 @@ class Config:
                       host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "8000")),
                       base_url=base_url, api_key=os.getenv("MODEL_API_KEY", "").strip(),
                       model=os.getenv("MODEL_NAME", "").strip(), api_style=style,
-                      max_file_bytes=int(os.getenv("MAX_FILE_MB", "5")) * 1024 * 1024,
-                      max_pages=int(os.getenv("MAX_PDF_PAGES", "20")),
+                      max_file_bytes=int(os.getenv("MAX_FILE_MB", "100")) * 1024 * 1024,
+                      pdf_parse_timeout=float(os.getenv("PDF_PARSE_TIMEOUT_SECONDS", "120")),
                       max_context_chars=int(os.getenv("MAX_CONTEXT_CHARS", "45000")),
                       model_timeout=float(os.getenv("MODEL_TIMEOUT_SECONDS", "60")),
                       max_output_tokens=int(os.getenv("MODEL_MAX_OUTPUT_TOKENS", "2200")),
@@ -65,7 +65,7 @@ class Config:
         if origins:
             values["allowed_origins"] = tuple(v.strip() for v in origins.split(",") if v.strip())
         result = cls(**values)
-        if not 1 <= result.port <= 65535 or min(result.max_file_bytes, result.max_pages, result.max_context_chars, result.model_timeout, result.max_output_tokens) <= 0:
+        if not 1 <= result.port <= 65535 or min(result.max_file_bytes, result.pdf_parse_timeout, result.max_context_chars, result.model_timeout, result.max_output_tokens) <= 0:
             raise ValueError("端口或容量/超时配置不合法。")
         return result
 

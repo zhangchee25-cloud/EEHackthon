@@ -3,7 +3,7 @@ import { Check, FileText, LoaderCircle, Upload } from 'lucide-react';
 import type { Material } from '../domain';
 import { Alert, Badge, Button } from './ui';
 
-type Props = { limits:{maxBytes:number;maxPages:number};courseId:string|null;
+type Props = { limits:{maxBytes:number;maxPages:number|null};courseId:string|null;
   materials: Material[]; current: Material | null; disabled: boolean;
   uploading: boolean; uploadName: string; error: string;
   onUpload: () => void; onDrop: (file?: File) => void; onSelect: (material: Material) => void;
@@ -13,7 +13,7 @@ export default function MaterialLibrary({ limits, courseId, materials, current, 
   return <div className="material-library" onDragOver={e => { e.preventDefault(); if (!disabled) setDragging(true); }} onDragLeave={e => { if (!(e.relatedTarget instanceof Node) || !e.currentTarget.contains(e.relatedTarget)) setDragging(false); }} onDrop={e => { e.preventDefault(); setDragging(false); onDrop(e.dataTransfer.files[0]); }}>
     <div className="section-heading"><h2>材料库</h2><span className="count">{materials.length}</span></div>
     <Button className={`upload-button ${dragging ? 'dragging' : ''}`} disabled={disabled||!!courseId} loading={uploading} onClick={onUpload}>{!uploading && <Upload size={14} />}上传 PDF</Button>
-    <p className="material-format">文本 PDF · 最大 {limits.maxBytes/1024/1024} MB / {limits.maxPages} 页 · 支持拖放</p>
+    <p className="material-format">文本 PDF · 最大 {limits.maxBytes/1024/1024} MB / {limits.maxPages === null ? "页数不限" : `${limits.maxPages} 页`} · 支持拖放</p>
     <ul className="material-list" aria-label="本次会话材料">
       {materials.map(item => <li key={`${item.materialId}:${item.versionId}`}><button className="material-row" aria-current={item.materialId === current?.materialId && item.versionId === current.versionId ? 'true' : undefined} disabled={disabled||item.status!=='ready'} onClick={() => onSelect(item)}>
         <FileText size={16} /><span className="material-row-content"><strong>{item.title}</strong><span>{item.pageCount ? `${item.pageCount} 页 · ` : ''}<span className="ready-text"><Check size={12} />{item.status==='ready'?'已就绪':item.status==='processing'?'处理中':'失败'}</span></span></span>

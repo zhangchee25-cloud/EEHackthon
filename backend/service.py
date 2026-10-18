@@ -54,7 +54,7 @@ class WorkspaceService:
         return {"status": "ok", "mode": "local_single_user", "modelConfigured": not missing,
                 "missingSettings": missing, "model": self.config.model or None,
                 "apiStyle": self.config.api_style,
-                "limits": {"maxFileBytes": self.config.max_file_bytes, "maxPdfPages": self.config.max_pages,
+                "limits": {"maxFileBytes": self.config.max_file_bytes, "maxPdfPages": None,
                            "maxContextChars": self.config.max_context_chars},
                 "notice": "本机单用户学习空间；网络学堂需本人连接；未接入 FreeBBS。"}
 
@@ -85,11 +85,11 @@ class WorkspaceService:
                 temporary.replace(path)
                 try:
                     proc = subprocess.run([sys.executable, str(Path(__file__).with_name("pdf_worker.py")),
-                                           str(path), str(self.config.max_pages)],
-                                          capture_output=True, text=True, encoding="utf-8", timeout=25,
+                                           str(path)],
+                                          capture_output=True, text=True, encoding="utf-8", timeout=self.config.pdf_parse_timeout,
                                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
                 except subprocess.TimeoutExpired:
-                    raise AppError("PDF_PARSE_TIMEOUT", "PDF 解析超过 25 秒，请换用更短的文本 PDF。", 422) from None
+                    raise AppError("PDF_PARSE_TIMEOUT", f"PDF 解析超过 {self.config.pdf_parse_timeout:g} 秒，可提高 PDF_PARSE_TIMEOUT_SECONDS 后重试。", 422) from None
                 try:
                     result = json.loads(proc.stdout)
                 except (ValueError, TypeError):

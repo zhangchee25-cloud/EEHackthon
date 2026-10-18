@@ -62,7 +62,7 @@ type ImportBatch = { batchId: string; courseId: string;
 
 ## 5. 材料和问答
 
-- 保留 `POST /api/materials`（multipart `file`）→ Material；同步解析完成才 ready，默认 5 MB／20 页。单独上传可无课程关联。
+- 保留 `POST /api/materials`（multipart `file`）→ Material；同步解析完成才 ready，默认 100 MB，PDF 页数不限。单独上传可无课程关联。
 - 保留 `GET /api/materials/:materialId/file`（原 PDF），`GET /api/materials/:materialId` → Material。
 - `GET /api/courses/:courseId/materials` → `{course:Course,materials:Material[],warnings:string[]}`，只列该课程关联材料；成功导入后自动出现。
 - `POST /api/courses/:courseId/ask`，body `{question,requestId,materialScope?:Scope[]}`。省略 materialScope 使用该课程当前已就绪材料集合；传入时固定所选合法版本，不接受其他课程材料。

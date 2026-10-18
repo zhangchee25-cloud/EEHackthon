@@ -22,7 +22,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   const [scope, setScope] = useState('course');
   const [courseError, setCourseError] = useState('');
   const [courseWarnings, setCourseWarnings] = useState<string[]>([]);
-  const [limits, setLimits] = useState({maxBytes:5*1024*1024,maxPages:20});
+  const [limits, setLimits] = useState<{maxBytes:number;maxPages:number|null}>({maxBytes:100*1024*1024,maxPages:null});
   const [fixture, setFixture] = useState(false);
   const [health, setHealth] = useState<'checking' | 'online' | 'offline'>('checking');
   const [material, setMaterial] = useState<Material | null>(null);
@@ -65,7 +65,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   const readyMaterial = askMaterials.length > 0;
   const reviewCount = scopedCards.filter(c => c.reviewStatus === 'to_review').length;
 
-  const checkHealth = () => { setHealth('checking'); void api.health().then(data => { setHealth('online'); const l = (data as {limits?:{maxUploadBytes?:number;maxFileBytes?:number;maxPages?:number;maxPagesPerMaterial?:number;maxPdfPages?:number}})?.limits; if(l) setLimits({maxBytes:l.maxUploadBytes || l.maxFileBytes || 5*1024*1024,maxPages:l.maxPdfPages || l.maxPages || l.maxPagesPerMaterial || 20}); setFixture(!!data && typeof data === 'object' && (data as {mode?: string}).mode === 'test-fixture'); }).catch(() => { setHealth('offline'); setFixture(false); }); };
+  const checkHealth = () => { setHealth('checking'); void api.health().then(data => { setHealth('online'); const l = (data as {limits?:{maxUploadBytes?:number;maxFileBytes?:number;maxPages?:number|null;maxPagesPerMaterial?:number|null;maxPdfPages?:number|null}})?.limits; if(l) setLimits({maxBytes:l.maxUploadBytes || l.maxFileBytes || 100*1024*1024,maxPages:l.maxPdfPages === null ? null : l.maxPdfPages ?? l.maxPages ?? l.maxPagesPerMaterial ?? null}); setFixture(!!data && typeof data === 'object' && (data as {mode?: string}).mode === 'test-fixture'); }).catch(() => { setHealth('offline'); setFixture(false); }); };
   useEffect(checkHealth, []);
   useEffect(() => { const saved=storeDraft(QUESTION_KEY + ':courses', questions);setQuestionStorageError(!saved);if(saved)storeDraft(QUESTION_KEY,null); }, [questions]);
   useEffect(() => {
@@ -105,7 +105,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
     if(courseId){setUploadError('请切换到“独立上传材料”后上传；课程文件请使用网络学堂导入。');return;}
     setUploadError(''); setUploadName(file.name);
     if (!file.name.toLowerCase().endsWith('.pdf')) { setUploadError('请选择 PDF 文件。扫描件 OCR 暂不支持，请使用含可选中文字的 PDF。'); return; }
-    if (file.size === 0 || file.size > limits.maxBytes) { setUploadError(`请选择非空且不超过 ${limits.maxBytes/1024/1024} MB、${limits.maxPages} 页的文本 PDF。`); return; }
+    if (file.size === 0 || file.size > limits.maxBytes) { setUploadError(`请选择非空且不超过 ${limits.maxBytes/1024/1024} MB 的文本 PDF。`); return; }
     setUploading(true);
     try {
       const next = await api.upload(file);

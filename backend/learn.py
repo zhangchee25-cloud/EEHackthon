@@ -280,7 +280,7 @@ class LearnClient:
             kind = str(f.get("wjlx") or Path(title).suffix).lower().lstrip(".")
             size = self._size(f.get("fileSize"))
             reason = "目前仅支持文本 PDF。" if kind != "pdf" else (
-                "文件超过本次 5 MB 上限。" if size is not None and size > self.config.max_file_bytes else None)
+                f"文件超过本次 {self.config.max_file_bytes / 1024 / 1024:g} MB 上限。" if size is not None and size > self.config.max_file_bytes else None)
             result.append({"fileId": fid, "courseId": course["courseId"], "title": title, "fileType": kind,
                 "sizeBytes": size, "supported": reason is None, "unsupportedReason": reason})
         if len({f["fileId"] for f in result}) != len(result):

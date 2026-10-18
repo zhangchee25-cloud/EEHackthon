@@ -42,7 +42,7 @@ export const api = {
   getState: async () => parse(StateSchema, await request('/state')),
   saveState: async (state: StudyState) => { const saved = parse(StateSchema, await request('/state', json('PUT',state))); if (saved.revision !== state.revision + 1) throw new ApiError('保存响应没有确认下一版本，草稿已保留。'); return saved; },
   material: async (materialId: string) => parse(MaterialSchema, await request(`/materials/${id(materialId)}`)),
-  upload: async (file: File) => { const body = new FormData(); body.append('file', file); return parse(MaterialSchema, await request('/materials', { method: 'POST', body }, 90000)); },
+  upload: async (file: File) => { const body = new FormData(); body.append('file', file); return parse(MaterialSchema, await request('/materials', { method: 'POST', body }, 180000)); },
   ask: async (materialId: string, versionId: string, question: string, requestId: string = crypto.randomUUID()) => {
     const answer = parse(AnswerSchema, await request('/ask', json('POST',{materialId,question,requestId}),120000));
     if (answer.selectedScope.some(s => s.materialId !== materialId || s.versionId !== versionId)) throw new ApiError('回答范围与当前材料版本不一致，已停止展示。');

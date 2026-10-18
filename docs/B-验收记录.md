@@ -45,4 +45,8 @@ python -m backend.tests.verify_handoff
 
 真实双材料课程模型复现命令：`python -m backend.verify_school_course_qa --course-id <本机课程ID> --material-ids <获授权材料ID1> <获授权材料ID2> --question "你的综合问题"`。必须先获得本人对两份材料和模型发送的明确授权；参数化脚本不包含私人课程／材料 ID。此前20检查通过的实测报告仍对应获授权的具体问题与5142字符片段；本次参数化后只验证语法／CLI，不重复调用模型。
 
-候选包输出于 `backend/deliverables/learning-agent-backend.zip`，显式源码白名单，排除真实 `.env`、`data/`、`vendor/`、会话、教师 PDF 和本机报告。只带自制示例 PDF；集成人保留 A 的 frontend 与 B 的 backend/examples，不覆盖对方业务目录。Mac／Windows 的依赖、浏览器安装及统一 `python -m backend` 入口见 `backend/README.md`。默认容量保持 **5 MB／20 页**。
+候选包输出于 `backend/deliverables/learning-agent-backend.zip`，显式源码白名单，排除真实 `.env`、`data/`、`vendor/`、会话、教师 PDF 和本机报告。只带自制示例 PDF；集成人保留 A 的 frontend 与 B 的 backend/examples，不覆盖对方业务目录。Mac／Windows 的依赖、浏览器安装及统一 `python -m backend` 入口见 `backend/README.md`。默认容量调整为 **100 MB，PDF 页数不限**。
+
+## 取消 PDF 页数限制回归（2026-10-18）
+
+后端 51 项离线测试通过；前端 17 项单元测试及生产构建通过。新增样本覆盖 251 页文本 PDF、带 6 MB 附件的有效 PDF、超过 30 万字符的提取文本；验证旧 MAX_PDF_PAGES 不影响不限页数，以及学校目录对 60 MB 文件允许导入、101 MB 文件按当前 100 MB 上限提示。上述验证未访问学校账号或外部模型。

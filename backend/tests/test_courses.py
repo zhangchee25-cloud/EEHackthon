@@ -230,6 +230,18 @@ class CourseTests(unittest.TestCase):
         self.assertEqual(client._size("4.5 MB"), 4718592)
         self.assertIsNone(client._size("unknown"))
 
+    def test_school_file_precheck_uses_expanded_configured_capacity(self):
+        class Transport:
+            def request(self, path, binary=False):
+                return {"object": [
+                    {"wjid": "large", "bt": "large.pdf", "wjlx": "pdf", "fileSize": "60MB"},
+                    {"wjid": "oversize", "bt": "oversize.pdf", "wjlx": "pdf", "fileSize": "101MB"},
+                ]}
+        files = LearnClient(self.config, Transport()).files(self.course)["files"]
+        self.assertTrue(files[0]["supported"])
+        self.assertFalse(files[1]["supported"])
+        self.assertIn("100 MB", files[1]["unsupportedReason"])
+
     def test_http_contract(self):
         server = create_server(self.config, self.w, port=0)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
