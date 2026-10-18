@@ -205,6 +205,11 @@
     "sha256": "173c7a676e966fd6c120671b61da022f642a160ebe10b1e02286e7df50e2badc"
   },
   {
+    "path": "docs/2026-10-18-Enter发送快捷键更新记录.md",
+    "bytes": 1542,
+    "sha256": "c3f979f0b454b9de11cec938152fcd3e0a4d6ad31281cee7ed152ab02a60d493"
+  },
+  {
     "path": "docs/A-验收记录.md",
     "bytes": 7473,
     "sha256": "680217412c019e67c20a5583f7c80daad4f879962fc81e4bbf680d0464a0e357"
@@ -336,8 +341,8 @@
   },
   {
     "path": "frontend/src/App.tsx",
-    "bytes": 34482,
-    "sha256": "6c3dcac47f2bff00de4dc2ac5f5a28dd626e4c0029248c9749aae750c416c326"
+    "bytes": 34533,
+    "sha256": "a3cd7ae28952002483e5fa7931cdecc76995a4fb387666306140ac7dd2eea424"
   },
   {
     "path": "frontend/src/Site.tsx",
