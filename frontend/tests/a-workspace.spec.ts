@@ -1,6 +1,6 @@
 import {readFile} from 'node:fs/promises';
 import {test,expect,type Page} from '@playwright/test';
-const fixture='http://127.0.0.1:8012';
+const fixture=process.env.UI_FIXTURE_URL||'http://127.0.0.1:8012';
 
 test('PDF rendering settles and keeps the previous page during resize', async ({page:p}) => {
  await p.getByLabel('上传课程 PDF').setInputFiles('../docs/acceptance/capacitors-self-authored.pdf');
@@ -30,7 +30,8 @@ async function state(p:Page){return (await p.request.get(fixture+'/__fixture__/s
 async function assistant(p:Page){const t=p.getByRole('tab',{name:/学习助手/});if(await t.isVisible())await t.click();}
 async function choose(p:Page,id='course-a'){const d=p.locator('.learn-import');if(!await d.evaluate(e=>(e as HTMLDetailsElement).open))await d.locator('summary').click();await expect(p.getByLabel('课程',{exact:true}).locator(`option[value="${id}"]`)).toHaveCount(1);await p.getByLabel('课程',{exact:true}).selectOption(id);await expect.poll(async()=>(await state(p)).activeCourseId).toBe(id);}
 async function card(p:Page,title:string){await assistant(p);await p.getByRole('tab',{name:/我的理解/}).click();await p.getByRole('button',{name:'手写卡片',exact:true}).click();await p.getByLabel('卡片标题').fill(title);await p.getByLabel('我的理解',{exact:true}).fill(title+'：自己的解释');await p.getByRole('button',{name:'保存我的理解',exact:true}).click();await expect.poll(async()=>(await state(p)).cards.some((c:any)=>c.title===title)).toBe(true);}
-async function board(p:Page){if(!await p.locator('.board-container').isVisible())await p.getByRole('button',{name:'课程白板',exact:true}).click();}
+async function board(p:Page){const reading=p.getByRole('tab',{name:'阅读材料',exact:true});if(await reading.isVisible())await reading.click();if(!await p.locator('.board-container').isVisible())await p.getByRole('button',{name:'课程白板',exact:true}).click();}
+async function addCardToBoard(p:Page,title:string){await assistant(p);await p.getByRole('tab',{name:/我的理解/}).click();await p.getByRole('button',{name:`把卡片添加到白板 ${title}`,exact:true}).click();await board(p);await expect(p.locator('.board-heading')).toContainText('白板已保存');}
 test.beforeEach(async({page:p})=>{await p.request.get(fixture+'/__fixture__/reset');await p.goto('/#study');await expect(p.locator('.fixture-banner')).toBeVisible();});
 test('course import, citations, cards, board persistence and course isolation',async({page:p},info)=>{
  const errors:string[]=[];p.on('pageerror',e=>errors.push(e.message));await choose(p);
@@ -41,7 +42,7 @@ test('course import, citations, cards, board persistence and course isolation',a
  await assistant(p);await p.getByRole('button',{name:'直接创建卡片',exact:true}).click();await expect.poll(async()=>(await state(p)).cards.length).toBe(1);const generated=(await state(p)).cards[0];expect(generated.origin).toBe('ai');expect(generated.reviewStatus).toBe('to_review');expect(generated.sourceRefs).toHaveLength(4);await expect(p.getByText('AI 生成',{exact:true})).toBeVisible();await p.getByRole('button',{name:'编辑卡片 解释电容储能'}).click();await p.getByLabel('卡片标题').fill('储能理解');await expect(p.getByRole('button',{name:'保存卡片',exact:true})).toBeEnabled();await p.getByRole('button',{name:'保存卡片',exact:true}).click();
  await p.getByRole('button',{name:'标记已自检'}).click();await expect.poll(async()=>(await state(p)).cards[0].reviewStatus).toBe('self_checked');await p.getByRole('button',{name:'编辑卡片 储能理解'}).click();await p.getByLabel('卡片内容',{exact:true}).fill('修订后的解释：电场中储能。');await p.getByRole('button',{name:'保存卡片',exact:true}).click();await expect.poll(async()=>(await state(p)).cards[0].reviewStatus).toBe('to_review');
  await card(p,'电压');await card(p,'电荷');const downloadPromise=p.waitForEvent('download');await p.getByRole('button',{name:'导出 Markdown',exact:true}).click();const download=await downloadPromise;const markdown=await readFile((await download.path())!,'utf8');expect(markdown).toContain('修订后的解释');expect(markdown).toContain('讲义一.pdf');await board(p);
- for(const title of ['储能理解','电压','电荷']){await p.getByLabel('选择上板卡片').selectOption({label:title});await p.getByRole('button',{name:'加入白板',exact:true}).click();await expect(p.getByRole('button',{name:`移动 ${title}`,exact:true})).toBeVisible();}
+ for(const title of ['储能理解','电压','电荷']){await addCardToBoard(p,title);await expect(p.getByRole('button',{name:`移动 ${title}`,exact:true})).toBeVisible();}
  await p.getByLabel('连线起点').selectOption({label:'储能理解'});await p.getByLabel('连线终点').selectOption({label:'电压'});await p.getByLabel('连线说明',{exact:true}).fill('依赖');await p.getByRole('button',{name:'连接节点',exact:true}).click();await expect(p.locator('.board-edge-list')).toContainText('依赖');
  const handle=p.getByRole('button',{name:'移动 储能理解',exact:true}),node=p.locator('.board-node').filter({has:handle});const old=await node.evaluate(e=>(e as HTMLElement).style.left);await handle.focus();await p.keyboard.press('ArrowRight');await expect.poll(()=>node.evaluate(e=>(e as HTMLElement).style.left)).not.toBe(old);
  if(info.project.name==='desktop'){const b=await handle.boundingBox();await p.mouse.move(b!.x+20,b!.y+8);await p.mouse.down();await p.mouse.move(b!.x+80,b!.y+48,{steps:5});await p.mouse.up();}await expect(p.locator('.board-heading')).toContainText('白板已保存');
@@ -75,7 +76,7 @@ test('state 503 and 409 preserve local edits for explicit recovery',async({page:
 test('ten-card board, independent 503 recovery and 409 handling',async({page:p})=>{
  const cards=Array.from({length:10},(_,i)=>({id:`card-${i}`,courseId:'course-a',title:`概念 ${i+1}`,body:`第 ${i+1} 张理解卡片`,sourceRefs:[],reviewStatus:'to_review',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}));
  const base=await state(p);await p.request.put(fixture+'/api/state',{data:{...base,activeCourseId:'course-a',cards}});await p.reload();await expect(p.getByRole('button',{name:'课程白板',exact:true})).toBeVisible();await board(p);
- for(const c of cards){await p.getByLabel('选择上板卡片').selectOption(c.id);await p.getByRole('button',{name:'加入白板',exact:true}).click();}
+ for(const c of cards){await addCardToBoard(p,c.title);}
  await expect(p.locator('.board-node')).toHaveCount(10);await expect(p.locator('.board-heading')).toContainText('白板已保存');
  await p.request.get(fixture+'/__fixture__/fail-board?enabled=1');await p.getByRole('button',{name:'移动 概念 1',exact:true}).focus();await p.keyboard.press('ArrowDown');await expect(p.getByText('白板保存未成功',{exact:true})).toBeVisible();await p.reload();await board(p);await expect(p.getByText('发现白板本机草稿',{exact:true})).toBeVisible();await p.request.get(fixture+'/__fixture__/fail-board?enabled=0');await p.getByRole('button',{name:'用本机草稿替换并保存',exact:true}).click();await expect(p.locator('.board-heading')).toContainText('白板已保存');
  let b=await (await p.request.get(fixture+'/api/courses/course-a/board')).json();expect(b.nodes).toHaveLength(10);expect(b.nodes[0].y).toBe(44);

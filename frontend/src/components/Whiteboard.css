@@ -14,3 +14,8 @@
 .board-node.board-node-selected {border:2px solid #8a61cc;box-shadow:0 0 0 3px #8a61cc22}
 .board-node-actions {flex-wrap:wrap}
 .board-advanced-link {opacity:.85}
+
+.board-node-selection {display:flex;align-items:center;gap:6px;font-size:11px;color:var(--study-muted,#68716c);margin-bottom:6px;cursor:pointer}
+.board-node-selection input {accent-color:var(--study-primary,#547d6e);width:16px;height:16px}
+.board-node.board-node-batch-selected {border:2px solid var(--study-primary,#547d6e);box-shadow:0 0 0 3px #547d6e26}
+.board-toolbar-status {font-size:11px;color:var(--study-muted,#68716c);white-space:nowrap}

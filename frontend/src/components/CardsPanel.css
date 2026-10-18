@@ -1,0 +1,16 @@
+.cards-board-toolbar {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--study-border);
+  border-radius: 10px;
+  background: var(--study-surface-soft, #f8faf9);
+}
+.cards-board-toolbar p { margin: 0; font-size: 12px; font-weight: 600; }
+.cards-board-toolbar > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.cards-board-toolbar small { color: var(--study-muted); font-size: 12px; line-height: 1.5; }
+.study-card-top-actions { display: flex; align-items: center; gap: 8px; }
+.card-board-selection { display: inline-flex; align-items: center; gap: 5px; color: var(--study-muted); font-size: 12px; cursor: pointer; }
+.card-board-selection input { width: 16px; height: 16px; margin: 0; accent-color: var(--study-brand, #2d6954); }
+.study-card-board-action { display: flex; justify-content: flex-end; margin-top: 10px; }

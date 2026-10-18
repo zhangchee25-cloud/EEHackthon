@@ -1,16 +1,23 @@
-import { useCallback, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { api, ApiError } from '../api';
 import { BoardSchema, type Board, type BoardPreview, type Card, type Citation } from '../domain';
 import { useRevisionState } from '../hooks/useStudyState';
-import { Alert, Button } from './ui';
+import { Alert, Button, ConfirmDialog } from './ui';
+import WhiteboardViewport, { type WhiteboardViewportHandle } from './WhiteboardViewport';
 import './Whiteboard.css';
 
-type Props = {courseId:string;cards:Card[];disabled:boolean;stateRevision:number;onApplied:()=>Promise<void>;onBusyChange:(busy:boolean)=>void;onOpen:(card:Card)=>void;onSource:(c:Citation)=>void};
-export default function Whiteboard({courseId,cards,disabled,stateRevision,onApplied,onBusyChange,onOpen,onSource}:Props) {
+export type WhiteboardHandle = {addCard:(cardId:string)=>boolean;removeCards:(cardIds:string[])=>boolean;clear:()=>boolean};
+type Props = {onMembershipChange?:(cardIds:string[])=>void;onShowCards?:()=>void;courseId:string;cards:Card[];disabled:boolean;stateRevision:number;onApplied:()=>Promise<void>;onBusyChange:(busy:boolean)=>void;onOpen:(card:Card)=>void;onSource:(c:Citation)=>void};
+const Whiteboard = forwardRef<WhiteboardHandle,Props>(function Whiteboard({courseId,cards,disabled,stateRevision,onApplied,onBusyChange,onOpen,onSource,onMembershipChange,onShowCards},ref) {
   const get = useCallback(()=>api.getBoard(courseId),[courseId]);
   const initial:Board={courseId,revision:0,nodes:[],edges:[],updatedAt:null};
   const board=useRevisionState(`zhiye:board:${courseId}`,initial,BoardSchema,get,api.saveBoard);
-  const [chosen,setChosen]=useState('');
+  const viewport=useRef<WhiteboardViewportHandle>(null);
+  const [scale,setScale]=useState(1);
+  const [selected,setSelected]=useState<string[]>([]);
+  const [confirmClear,setConfirmClear]=useState(false);
+  const openCard=async(card:Card)=>{await viewport.current?.exitFullscreen();onOpen(card);};
+  const openSource=async(source:Citation)=>{await viewport.current?.exitFullscreen();onSource(source);};
   const [source,setSource]=useState(''); const [target,setTarget]=useState(''); const [label,setLabel]=useState('');
   const [linkStart,setLinkStart]=useState('');
   const [instruction,setInstruction]=useState('');
@@ -24,8 +31,23 @@ export default function Whiteboard({courseId,cards,disabled,stateRevision,onAppl
   const locked=disabled||applying||!board.ready||!!board.recovery||board.conflict;
   const aiLocked=locked||board.saveStatus!=='saved';
   const nodes=board.state.nodes.map(n=>moving?.id===n.id?{...n,x:moving.x,y:moving.y}:n);
-  const remove=(id:string)=>board.update(b=>({...b,nodes:b.nodes.filter(n=>n.id!==id),edges:b.edges.filter(e=>e.source!==id&&e.target!==id)}),true);
-  const add=()=>{const card=cards.find(c=>c.id===chosen);if(!card)return;board.update(b=>({...b,nodes:[...b.nodes,{id:crypto.randomUUID(),cardId:card.id,x:24+(b.nodes.length%3)*270,y:24+Math.floor(b.nodes.length/3)*210}]}),true);};
+  useEffect(()=>{if(board.ready)onMembershipChange?.([...new Set(board.state.nodes.map(n=>n.cardId))]);},[board.ready,board.state.nodes,onMembershipChange]);
+  useEffect(()=>{setSelected(ids=>ids.filter(id=>board.state.nodes.some(n=>n.id===id)));},[board.state.nodes]);
+  const removeNodes=(ids:string[])=>{
+    if(locked)return false;
+    const removed=new Set(ids);
+    board.update(b=>({...b,nodes:b.nodes.filter(n=>!removed.has(n.id)),edges:b.edges.filter(e=>!removed.has(e.source)&&!removed.has(e.target))}),true);
+    setSelected(current=>current.filter(id=>!removed.has(id)));
+    setLinkStart(current=>removed.has(current)?'':current);setSource(current=>removed.has(current)?'':current);setTarget(current=>removed.has(current)?'':current);
+    setNotice('已从白板移出，原学习卡片仍保留。');return true;
+  };
+  const addCard=(cardId:string)=>{
+    if(locked||!cards.some(c=>c.id===cardId))return false;
+    board.update(b=>b.nodes.some(n=>n.cardId===cardId)?b:{...b,nodes:[...b.nodes,{id:crypto.randomUUID(),cardId,x:24+(b.nodes.length%3)*270,y:24+Math.floor(b.nodes.length/3)*250}]},true);
+    setNotice('卡片已加入白板。');return true;
+  };
+  const clear=()=>removeNodes(board.state.nodes.map(n=>n.id));
+  useImperativeHandle(ref,()=>({addCard,removeCards:(ids)=>removeNodes(board.state.nodes.filter(n=>ids.includes(n.cardId)).map(n=>n.id)),clear}));
   const connect=(from:string,to:string)=>{
     if(locked||from===to||!nodes.some(n=>n.id===from)||!nodes.some(n=>n.id===to))return;
     if(board.state.edges.some(e=>e.source===from&&e.target===to)){setNotice('这两个节点已有连线。');setLinkStart('');return;}
@@ -65,28 +87,36 @@ export default function Whiteboard({courseId,cards,disabled,stateRevision,onAppl
     {aiError&&<Alert title="AI 白板暂未完成" action={aiConflict&&<Button disabled={locked} onClick={async()=>{onBusyChange(true);try{await onApplied();await board.reload();setAiConflict(false);setAiError('');}finally{onBusyChange(false);}}}>刷新版本后重试</Button>}>{aiError}</Alert>}
     {preview&&<section className="board-ai-preview" aria-label="AI 白板预览">
       <h3>生成预览 · {preview.cards.length} 张卡片 · {preview.edges.length} 条连线</h3>
-      <div className="board-preview-cards">{preview.cards.map(c=><article key={c.id}><h4>{c.title}</h4><p>{c.body}</p>{c.sourceRefs.map(ref=><button key={ref.id} className="text-button" onClick={()=>onSource(ref)}>{ref.title} · 第 {ref.pageStart} 页</button>)}</article>)}</div>
+      <div className="board-preview-cards">{preview.cards.map(c=><article key={c.id}><h4>{c.title}</h4><p>{c.body}</p>{c.sourceRefs.map(ref=><button key={ref.id} className="text-button" onClick={()=>void openSource(ref)}>{ref.title} · 第 {ref.pageStart} 页</button>)}</article>)}</div>
       <ul>{preview.edges.map(e=>{const title=(id:string)=>preview.cards.find(c=>c.id===preview.nodes.find(n=>n.id===id)?.cardId)?.title;return <li key={e.id}>{title(e.source)} → {title(e.target)}：{e.label||'关联'}</li>;})}</ul>
       {preview.limitations.map((text,i)=><p className="muted small" key={i}>{text}</p>)}
       <div className="board-tools"><Button variant="primary" disabled={aiLocked||generating} loading={applying} onClick={()=>void apply()}>创建卡片并加入白板</Button><Button disabled={applying||generating} onClick={()=>{setPreview(null);generationRequest.current=null;}}>放弃预览</Button></div>
     </section>}
     {notice&&<p role="status">{notice}</p>}
-    <div className="board-tools"><label>已保存卡片<select aria-label="选择上板卡片" value={chosen} onChange={e=>setChosen(e.target.value)}><option value="">选择一张卡片</option>{cards.filter(c=>!board.state.nodes.some(n=>n.cardId===c.id)).map(c=><option value={c.id} key={c.id}>{c.title}</option>)}</select></label><Button disabled={locked||!chosen||board.state.nodes.some(n=>n.cardId===chosen)} onClick={add}>加入白板</Button></div>
+
     <div className="board-quick-link"><p>点击节点的“从这里连线”，再点击另一节点的“连接到这里”。</p><input aria-label="快捷连线说明" placeholder="关系说明（可选）" value={label} maxLength={100} onChange={e=>setLabel(e.target.value)}/>{linkStart&&<div role="status">已选起点：{cards.find(c=>c.id===nodes.find(n=>n.id===linkStart)?.cardId)?.title}<Button onClick={()=>setLinkStart('')}>取消连线</Button></div>}</div>
     <div className="board-tools board-advanced-link"><label>起点<select aria-label="连线起点" value={source} onChange={e=>setSource(e.target.value)}><option value="">选择节点</option>{nodes.map(n=><option key={n.id} value={n.id}>{cards.find(c=>c.id===n.cardId)?.title || '卡片不可用'}</option>)}</select></label><label>终点<select aria-label="连线终点" value={target} onChange={e=>setTarget(e.target.value)}><option value="">选择节点</option>{nodes.map(n=><option key={n.id} value={n.id}>{cards.find(c=>c.id===n.cardId)?.title || '卡片不可用'}</option>)}</select></label><input aria-label="连线说明" placeholder="关系（可选）" value={label} maxLength={100} onChange={e=>setLabel(e.target.value)}/><Button disabled={locked||!source||!target||source===target||!nodes.some(n=>n.id===source)||!nodes.some(n=>n.id===target)} onClick={()=>connect(source,target)}>连接节点</Button></div>
     <p className="muted small">拖动卡片标题移动位置；键盘方向键移动 20 像素。移除节点只改变白板。</p>
-    <div className="board-scroll"><div className="board-canvas" style={{width:Math.max(860,...nodes.map(n=>n.x+270)),height:Math.max(600,...nodes.map(n=>n.y+220))}}>
+    <WhiteboardViewport ref={viewport} width={Math.max(860,...nodes.map(n=>n.x+270))} height={Math.max(600,...nodes.map(n=>n.y+270))} onScaleChange={setScale} toolbar={<>
+      <Button disabled={locked||!onShowCards} onClick={async()=>{await viewport.current?.exitFullscreen();onShowCards?.();}}>添加卡片</Button>
+      <Button disabled={locked||!selected.length} onClick={()=>removeNodes(selected)}>移出选定（{selected.length}）</Button>
+      <Button disabled={locked||!nodes.length} onClick={()=>setConfirmClear(true)}>全部移出</Button>
+      <span className="board-toolbar-status" role="status">{board.saveStatus==='saved'?'白板已保存':board.saveStatus==='error'?'保存失败 · 草稿已保留':'白板保存中…'}</span>
+      <ConfirmDialog open={confirmClear} title="从白板移出全部卡片？" confirmLabel="确认全部移出" onCancel={()=>setConfirmClear(false)} onConfirm={()=>{if(clear())setConfirmClear(false);}}>这会移出本课程白板上的全部节点及连线，原学习卡片和来源仍保留。</ConfirmDialog>
+    </>}>
       <svg className="board-edges" width="100%" height="100%" aria-hidden="true">{board.state.edges.map(e=>{const a=nodes.find(n=>n.id===e.source),b=nodes.find(n=>n.id===e.target);return a&&b?<g key={e.id}><line x1={a.x+120} y1={a.y+70} x2={b.x+120} y2={b.y+70}/><text x={(a.x+b.x)/2+120} y={(a.y+b.y)/2+65}>{e.label}</text></g>:null;})}</svg>
       {!nodes.length&&<p className="board-empty">先保存课程卡片，再将它们加入白板。</p>}
-      {nodes.map(n=>{const card=cards.find(c=>c.id===n.cardId);return <article className={`board-node ${linkStart===n.id?'board-node-selected':''}`} key={n.id} data-node-id={n.id} style={{left:n.x,top:n.y}}>
+      {nodes.map(n=>{const card=cards.find(c=>c.id===n.cardId);return <article className={`board-node ${linkStart===n.id?'board-node-selected':''} ${selected.includes(n.id)?'board-node-batch-selected':''}`} key={n.id} data-node-id={n.id} style={{left:n.x,top:n.y}}>
+        <label className="board-node-selection"><input type="checkbox" aria-label={`选择白板卡片 ${card?.title || '卡片'}`} checked={selected.includes(n.id)} disabled={locked} onChange={e=>setSelected(ids=>e.target.checked?[...ids,n.id]:ids.filter(id=>id!==n.id))}/>选定</label>
         <button className="board-drag" aria-label={`移动 ${card?.title || '卡片'}`} disabled={locked} onKeyDown={e=>{const moves:Record<string,number[]>={ArrowLeft:[-20,0],ArrowRight:[20,0],ArrowUp:[0,-20],ArrowDown:[0,20]};const delta=moves[e.key];if(!delta)return;e.preventDefault();board.update(b=>({...b,nodes:b.nodes.map(v=>v.id===n.id?{...v,x:Math.max(0,v.x+delta[0]),y:Math.max(0,v.y+delta[1])}:v)}),true);}}
         onPointerDown={e=>{if(e.button!==0)return; e.currentTarget.setPointerCapture(e.pointerId);drag.current={id:n.id,startX:e.clientX,startY:e.clientY,x:n.x,y:n.y,lastX:n.x,lastY:n.y};}}
-        onPointerMove={e=>{const d=drag.current;if(!d||d.id!==n.id)return;d.lastX=Math.max(0,d.x+e.clientX-d.startX);d.lastY=Math.max(0,d.y+e.clientY-d.startY);setMoving({id:n.id,x:d.lastX,y:d.lastY});}}
+        onPointerMove={e=>{const d=drag.current;if(!d||d.id!==n.id)return;d.lastX=Math.max(0,d.x+(e.clientX-d.startX)/scale);d.lastY=Math.max(0,d.y+(e.clientY-d.startY)/scale);setMoving({id:n.id,x:d.lastX,y:d.lastY});}}
         onPointerUp={()=>{const d=drag.current;if(!d)return;board.update(b=>({...b,nodes:b.nodes.map(v=>v.id===d.id?{...v,x:d.lastX,y:d.lastY}:v)}),true);drag.current=null;setMoving(null);}}
         onPointerCancel={()=>{drag.current=null;setMoving(null);}}>{card?.title || '卡片不可用'}</button>
-        <p>{card?.body || '请重读学习状态。'}</p><div className="board-node-actions"><Button aria-pressed={linkStart===n.id} disabled={locked} onClick={()=>{if(linkStart&&linkStart!==n.id)connect(linkStart,n.id);else setLinkStart(linkStart===n.id?'':n.id);}}>{linkStart===n.id?'取消起点':linkStart?'连接到这里':'从这里连线'}</Button><Button disabled={!card||disabled} onClick={()=>card&&onOpen(card)}>打开卡片</Button><Button disabled={locked} onClick={()=>remove(n.id)}>移除节点</Button></div>{card?.sourceRefs.map(c=><button className="text-button" key={c.id} onClick={()=>onSource(c)}>{c.title} · 第 {c.pageStart} 页</button>)}
+        <p>{card?.body || '请重读学习状态。'}</p><div className="board-node-actions"><Button aria-pressed={linkStart===n.id} disabled={locked} onClick={()=>{if(linkStart&&linkStart!==n.id)connect(linkStart,n.id);else setLinkStart(linkStart===n.id?'':n.id);}}>{linkStart===n.id?'取消起点':linkStart?'连接到这里':'从这里连线'}</Button><Button disabled={!card||disabled} onClick={()=>card&&void openCard(card)}>打开卡片</Button><Button disabled={locked} onClick={()=>removeNodes([n.id])}>移除节点</Button></div>{card?.sourceRefs.map(c=><button className="text-button" key={c.id} onClick={()=>void openSource(c)}>{c.title} · 第 {c.pageStart} 页</button>)}
       </article>;})}
-    </div></div>
+    </WhiteboardViewport>
     {!!board.state.edges.length&&<ul className="board-edge-list">{board.state.edges.map(e=><li key={e.id}>{cards.find(c=>c.id===nodes.find(n=>n.id===e.source)?.cardId)?.title} → {cards.find(c=>c.id===nodes.find(n=>n.id===e.target)?.cardId)?.title}：{e.label||'关联'} <Button disabled={locked} onClick={()=>board.update(b=>({...b,edges:b.edges.filter(v=>v.id!==e.id)}),true)}>删除连线</Button></li>)}</ul>}
   </section>;
-}
+});
+export default Whiteboard;

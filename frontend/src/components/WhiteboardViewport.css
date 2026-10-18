@@ -1,0 +1,26 @@
+.whiteboard-viewport-mount,
+.whiteboard-viewport-host { min-width: 0; }
+.whiteboard-viewport { display: flex; flex-direction: column; min-width: 0; height: clamp(340px, 62vh, 760px); min-height: 0; margin-top: 12px; border: 1px solid var(--study-border, #dedee5); border-radius: 10px; overflow: hidden; background: var(--study-surface, white); color: var(--study-text, #282834); }
+.whiteboard-canvas-toolbar { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border-bottom: 1px solid var(--study-border, #dedee5); background: var(--study-surface, white); max-height: 40%; overflow: auto; }
+.whiteboard-view-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.whiteboard-view-tools output { min-width: 38px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.whiteboard-fullscreen-button { margin-left: auto; }
+.whiteboard-selection-tools { display: flex; flex: 1 1 100%; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.whiteboard-selection-tools > * { max-width: 100%; }
+.whiteboard-viewport > .board-scroll { flex: 1 1 0; width: 100%; height: auto; min-height: 0; max-height: none; margin: 0; border: 0; border-radius: 0; overflow: auto; position: relative; overscroll-behavior: contain; background-color: var(--study-hover, #f6f9f7); background-image: radial-gradient(#cfded6 1px, transparent 1px); background-size: 20px 20px; }
+.whiteboard-scaled-space { position: relative; min-width: 100%; min-height: 100%; overflow: hidden; }
+.whiteboard-viewport .board-canvas { position: relative; background: transparent; }
+.whiteboard-viewport.is-fullscreen,
+.whiteboard-viewport:fullscreen { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; z-index: 10000; }
+.whiteboard-viewport:fullscreen::backdrop { background: var(--study-surface, white); }
+.whiteboard-viewport.is-fullscreen > .board-scroll,
+.whiteboard-viewport:fullscreen > .board-scroll { flex: 1 1 0; height: auto; max-height: none; min-height: 0; }
+.whiteboard-viewport.is-fullscreen .whiteboard-canvas-toolbar { padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left)); }
+@media (max-width: 600px) {
+  .whiteboard-canvas-toolbar { gap: 6px; padding: 8px; }
+  .whiteboard-view-tools { gap: 4px; }
+  .whiteboard-view-tools .button { padding: 6px 8px; }
+  .whiteboard-view-tools output { min-width: 32px; }
+  .whiteboard-fullscreen-button { order: -1; margin-left: 0; margin-right: auto; }
+  .whiteboard-view-tools { flex: 1 1 100%; }
+}

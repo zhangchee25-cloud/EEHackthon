@@ -5,7 +5,7 @@ import { api, validateAnswer } from './api';
 import { pageLabel, toMarkdown, type Answer, type Card, type Citation, type Material, type Position } from './domain';
 import { readDraft, storeDraft, useStudyState } from './hooks/useStudyState';
 import LearnImport from './components/LearnImport';
-import Whiteboard from './components/Whiteboard';
+import Whiteboard, { type WhiteboardHandle } from './components/Whiteboard';
 import PdfReader from './components/PdfReader';
 import MaterialLibrary from './components/MaterialLibrary';
 import StudyTabs from './components/StudyTabs';
@@ -20,6 +20,13 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   const readingRef = useRef(study.state.readingPosition); readingRef.current = study.state.readingPosition;
   const [boardOpen, setBoardOpen] = useState(false);
   const [boardBusy, setBoardBusy] = useState(false);
+  const whiteboard = useRef<WhiteboardHandle>(null);
+  const [boardMembership, setBoardMembership] = useState<{ courseId: string; ids: string[] } | null>(null);
+  const [pendingBoardCard, setPendingBoardCard] = useState<{ courseId: string; cardId: string; revision: number } | null>(null);
+  const boardCardIds = useMemo(() => boardMembership?.courseId === courseId ? boardMembership.ids : [], [boardMembership, courseId]);
+  const onBoardMembershipChange = useCallback((ids: string[]) => {
+    if (courseId) setBoardMembership({ courseId, ids });
+  }, [courseId]);
   const [scope, setScope] = useState('course');
   const [courseError, setCourseError] = useState('');
   const [courseWarnings, setCourseWarnings] = useState<string[]>([]);
@@ -83,7 +90,23 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
       setMaterial(old=>result.materials.find(m=>m.materialId===(old?.materialId || readingRef.current?.materialId) && m.versionId===(old?.versionId || readingRef.current?.versionId)) || result.materials.find(m=>m.status==='ready') || null);
     }).catch(e=>{if(courseRef.current===owner)setCourseError(e.message);});
   },[courseId]);
-  useEffect(() => { setBoardOpen(false); }, [courseId]);
+  useEffect(() => { setBoardOpen(false); setPendingBoardCard(null); }, [courseId]);
+  useEffect(() => {
+    if (!pendingBoardCard) return;
+    if (pendingBoardCard.courseId !== courseId) { setPendingBoardCard(null); return; }
+    if (study.saveStatus === 'error' || study.conflict || study.recovery) {
+      setPendingBoardCard(null);
+      setToast('卡片尚未保存成功，暂未加入白板。请先处理保存提示，再从卡片右下角加入。');
+      return;
+    }
+    if (locked || editor || study.saveStatus !== 'saved' || study.state.revision <= pendingBoardCard.revision || boardMembership?.courseId !== courseId) return;
+    setPendingBoardCard(null);
+    if (!study.state.cards.some(card => card.id === pendingBoardCard.cardId && card.courseId === courseId)) return;
+    if (whiteboard.current?.addCard(pendingBoardCard.cardId)) {
+      setBoardOpen(true); setMobileView('reader');
+      setToast('卡片已保存并提交加入白板，请查看白板保存结果。');
+    } else setToast('卡片已保存；请先处理白板的读取或保存提示，再从卡片右下角加入。');
+  }, [pendingBoardCard, courseId, locked, editor, study.saveStatus, study.state.revision, study.state.cards, study.conflict, study.recovery, boardMembership]);
   useEffect(()=>{
     setAnswer(null);setCitation(null);setOldView(null);setAskError('');setMaterials([]);setMaterial(null);setScope('course');setCourseWarnings([]);setCourseError('');
     if(courseId) refreshCourse();
@@ -171,6 +194,33 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
     study.update(s => ({ ...s, cards: s.cards.some(c => c.id === card.id) ? s.cards.map(c => c.id === card.id ? card : c) : [card, ...s.cards] }), true);
     setToast('卡片已提交保存，请查看顶部保存结果。');
   };
+  const saveCardAndAddToBoard = (card: Card) => {
+    if (!courseId || locked || card.courseId !== courseId) return;
+    setPendingBoardCard({ courseId, cardId: card.id, revision: study.state.revision });
+    saveCard(card);
+    setToast('正在保存卡片，保存成功后会加入白板。');
+  };
+  const addCardToBoard = (id: string) => {
+    if (locked || editor || study.saveStatus !== 'saved') return false;
+    const accepted = whiteboard.current?.addCard(id) ?? false;
+    if (accepted) {
+      setBoardOpen(true); setMobileView('reader');
+      setToast('已提交加入白板，请查看白板保存结果。');
+    } else setToast('暂时无法加入，请打开课程白板处理读取或保存提示后重试。');
+    return accepted;
+  };
+  const removeCardsFromBoard = (ids: string[]) => {
+    if (locked || editor || study.saveStatus !== 'saved') return false;
+    const accepted = whiteboard.current?.removeCards(ids) ?? false;
+    setToast(accepted ? '已提交移出选定卡片，卡片内容仍保留。' : '暂时无法移出，请打开课程白板处理读取或保存提示后重试。');
+    return accepted;
+  };
+  const clearBoard = () => {
+    if (locked || editor || study.saveStatus !== 'saved') return false;
+    const accepted = whiteboard.current?.clear() ?? false;
+    setToast(accepted ? '已提交全部移出，卡片内容仍保留。' : '暂时无法移出，请打开课程白板处理读取或保存提示后重试。');
+    return accepted;
+  };
   const exportCards = () => {
     const blob = new Blob(['\uFEFF' + toMarkdown({...study.state,cards:scopedCards})], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `清大搭-学习卡片-${new Date().toLocaleDateString('sv-SE')}.md`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -224,7 +274,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
           <div className="sidebar-bottom"><div className="study-stats"><span>我的理解 <strong>{scopedCards.length}</strong></span><span>待复习 <strong>{reviewCount}</strong></span></div><div className="next-step"><label htmlFor="next-step">下次继续</label><Textarea id="next-step" rows={3} maxLength={2000} disabled={locked} value={study.state.nextStep} onChange={e => study.update(s => ({ ...s, nextStep: e.target.value }))} onBlur={study.flush} placeholder="记下下次的起点…" /></div></div>
         </aside>
         <div className="reader-column" id="reader-view" role="tabpanel" aria-labelledby="reader-view-tab" tabIndex={0}>
-          {courseId&&<div hidden={!boardOpen} className="board-container"><Whiteboard key={courseId} stateRevision={study.state.revision} onApplied={async () => { await study.reload(); }} onBusyChange={setBoardBusy} courseId={courseId} cards={scopedCards} disabled={locked||!!editor||study.saveStatus!=='saved'} onSource={openCitation} onOpen={card=>{if(editor){setToast('请先保存或放弃当前卡片草稿。');showAssistant('cards');return;}setEditor({id:card.id,courseId:card.courseId,title:card.title,body:card.body,baseline:null,sourceRefs:card.sourceRefs});showAssistant('cards');}}/></div>}
+          {courseId&&<div hidden={!boardOpen} className="board-container"><Whiteboard key={courseId} ref={whiteboard} onMembershipChange={onBoardMembershipChange} onShowCards={() => showAssistant('cards')} stateRevision={study.state.revision} onApplied={async () => { await study.reload(); }} onBusyChange={setBoardBusy} courseId={courseId} cards={scopedCards} disabled={locked||!!editor||study.saveStatus!=='saved'} onSource={openCitation} onOpen={card=>{if(editor){setToast('请先保存或放弃当前卡片草稿。');showAssistant('cards');return;}setEditor({id:card.id,courseId:card.courseId,title:card.title,body:card.body,baseline:null,sourceRefs:card.sourceRefs});showAssistant('cards');}}/></div>}
           <div hidden={boardOpen} className="reader-content">
           {oldView && <div className="old-source-bar"><span>正在核对历史来源 · 版本 {oldView.versionId}</span><button className="text-button" onClick={() => { setOldView(null); setCitation(null); }}>返回当前材料</button></div>}
           <PdfReader onUpload={() => input.current?.click()} uploadDisabled={locked || uploading || asking} position={position} title={title} onAsk={() => showAssistant()} askDisabled={!readyMaterial || locked} onPage={page => { if (locked) return; if (oldView) setOldView({ ...oldView, page }); else study.update(s => s.readingPosition ? { ...s, readingPosition: { ...s.readingPosition, page } } : s); }} onLoaded={(id, count, filename) => { if (id !== current?.materialId) return; setMaterials(items => items.map(item => item.materialId === id ? { ...item, pageCount: count, title: filename || item.title } : item)); setMaterial(m => ({ materialId: current.materialId, versionId: current.versionId, status: 'ready', warnings:m?.warnings || [],error:m?.error || null,fileUrl:m?.fileUrl || api.fileUrl(id), title: m?.title || filename || current.title, pageCount: count })); }} />
@@ -259,7 +309,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
               {questionStorageError && <p className="error-text">本机问题草稿存储不可用，请保留当前页面。</p>}
             </form><p className="ai-notice">AI 回答仅供学习参考，请结合原文判断。</p>
           </div>
-          <div hidden={tab !== 'cards'} role="tabpanel" id="cards-panel" aria-labelledby="cards-tab" className="cards-tab-content" tabIndex={0}><CardsPanel courseId={courseId} cards={scopedCards} editor={editor?.courseId===courseId?editor:null} setEditor={setEditor} onSave={saveCard} onReview={(id, reviewStatus) => study.update(s => ({ ...s, cards: s.cards.map(c => c.id === id ? { ...c, reviewStatus, selfCheckedAt:reviewStatus==='self_checked'?new Date().toISOString():null, updatedAt: new Date().toISOString() } : c) }), true)} onSource={openCitation} disabled={locked} /></div>
+          <div hidden={tab !== 'cards'} role="tabpanel" id="cards-panel" aria-labelledby="cards-tab" className="cards-tab-content" tabIndex={0}><CardsPanel courseId={courseId} cards={scopedCards} editor={editor?.courseId===courseId?editor:null} setEditor={setEditor} onSave={saveCard} onSaveAndAddToBoard={courseId ? saveCardAndAddToBoard : undefined} boardCardIds={boardCardIds} boardDisabled={locked || !!editor || study.saveStatus !== 'saved' || boardMembership?.courseId !== courseId} onAddToBoard={courseId ? addCardToBoard : undefined} onRemoveFromBoard={removeCardsFromBoard} onClearBoard={clearBoard} onReview={(id, reviewStatus) => study.update(s => ({ ...s, cards: s.cards.map(c => c.id === id ? { ...c, reviewStatus, selfCheckedAt:reviewStatus==='self_checked'?new Date().toISOString():null, updatedAt: new Date().toISOString() } : c) }), true)} onSource={openCitation} disabled={locked} /></div>
         </aside>
       </div>
       <footer className="workspace-footer"><span>清大搭 · 个人课程学习空间</span><button className={`service-status ${health}`} onClick={checkHealth} title="点击检查本机后端连接"><span className="dot" />{health === 'online' ? fixture ? '接口测试桩已连接' : '本机服务已连接' : health === 'checking' ? '正在检查本机服务' : '本机服务未连接'}<RotateCw size={12} /></button></footer>

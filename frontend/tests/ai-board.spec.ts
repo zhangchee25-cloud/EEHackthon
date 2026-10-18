@@ -1,5 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
-const fixture='http://127.0.0.1:8012';
+const fixture=process.env.UI_FIXTURE_URL||'http://127.0.0.1:8012';
 async function state(p:Page){return (await p.request.get(fixture+'/__fixture__/state')).json();}
 async function showBoard(p:Page){await p.getByRole('button',{name:'课程白板',exact:true}).click();}
 test.beforeEach(async({page:p})=>{
