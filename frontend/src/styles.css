@@ -71,7 +71,7 @@
 .reader-top-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .ask-ai-button { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 4px 8px; border: 1px solid var(--study-border); border-radius: 6px; color: var(--study-primary); font-size: 12px; }
 .ask-ai-button:hover:not(:disabled) { background: var(--study-selected); }
-.paper-area { flex: 1; min-height: 0; overflow: auto; padding: 24px; background: var(--study-hover); }
+.paper-area { position: relative; flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; padding: 24px; background: var(--study-hover); }
 .empty-paper { display: flex; align-items: center; justify-content: center; background: var(--study-surface); }
 .reader-empty { max-width: 100%; }
 .empty-disabled-hint { display: block; font-size: 12px; margin-top: 8px; }
@@ -79,7 +79,7 @@
 .canvas-host canvas { background: var(--study-surface); border: 1px solid var(--study-border); }
 .pdf-loading .loading-state { padding: 0; }
 .pdf-fallback { display: block; margin-top: 8px; }
-.pdf-loading { position: sticky; top: 0; display: flex; align-items: center; gap: 8px; background: var(--study-surface); border: 1px solid var(--study-border); border-radius: 6px; padding: 8px 12px; margin: 0 auto 8px; width: max-content; max-width: 100%; font-size: 12px; }
+.pdf-loading { position: absolute; z-index: 1; top: 12px; left: 50%; transform: translateX(-50%); pointer-events: none; display: flex; align-items: center; gap: 8px; background: var(--study-surface); border: 1px solid var(--study-border); border-radius: 6px; padding: 8px 12px; width: max-content; max-width: calc(100% - 24px); font-size: 12px; }
 .pdf-error { padding: 16px; border: 1px solid var(--study-danger-border); border-radius: 8px; background: var(--study-danger-bg); color: var(--study-danger); font-size: 13px; overflow-wrap: anywhere; }
 .pdf-error .button { margin: 12px 8px 0 0; }
 .pdf-error a { display: inline-block; }

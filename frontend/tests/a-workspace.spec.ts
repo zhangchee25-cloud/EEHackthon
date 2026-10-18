@@ -1,6 +1,31 @@
 import {readFile} from 'node:fs/promises';
 import {test,expect,type Page} from '@playwright/test';
 const fixture='http://127.0.0.1:8012';
+
+test('PDF rendering settles and keeps the previous page during resize', async ({page:p}) => {
+ await p.getByLabel('上传课程 PDF').setInputFiles('../docs/acceptance/capacitors-self-authored.pdf');
+ await expect(p.locator('.canvas-host canvas')).toBeVisible();
+ // Force an overflowing reader, including on platforms with classic scrollbars.
+ await p.addStyleTag({content:'.paper-area {height:320px !important; flex:none !important;}'});
+ await expect(p.locator('.pdf-loading')).toHaveCount(0);
+ const changes=await p.locator('.canvas-host').evaluate(async host=>{
+   let replacements=0, blanks=0;
+   const observer=new MutationObserver(()=>{replacements++;if(!host.querySelector('canvas'))blanks++;});
+   observer.observe(host,{childList:true});
+   const reader=host.closest('.reader') as HTMLElement;
+   const original=reader.style.width;
+   reader.style.width='90%';
+   await new Promise(resolve=>setTimeout(resolve,1200));
+   reader.style.width=original;
+   await new Promise(resolve=>setTimeout(resolve,1200));
+   observer.disconnect();return {replacements,blanks};
+ });
+ expect(changes.blanks).toBe(0);
+ expect(changes.replacements).toBeLessThanOrEqual(4);
+ await expect(p.locator('.pdf-loading')).toHaveCount(0);
+ await p.getByRole('button',{name:'下一页',exact:true}).click();
+ await expect(p.getByRole('img',{name:'原 PDF 文件第 2 页'})).toBeVisible();
+});
 async function state(p:Page){return (await p.request.get(fixture+'/__fixture__/state')).json();}
 async function assistant(p:Page){const t=p.getByRole('tab',{name:/学习助手/});if(await t.isVisible())await t.click();}
 async function choose(p:Page,id='course-a'){const d=p.locator('.learn-import');if(!await d.evaluate(e=>(e as HTMLDetailsElement).open))await d.locator('summary').click();await expect(p.getByLabel('课程',{exact:true}).locator(`option[value="${id}"]`)).toHaveCount(1);await p.getByLabel('课程',{exact:true}).selectOption(id);await expect.poll(async()=>(await state(p)).activeCourseId).toBe(id);}

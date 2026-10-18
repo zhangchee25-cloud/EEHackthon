@@ -321,8 +321,8 @@
   },
   {
     "path": "frontend/src/components/PdfReader.tsx",
-    "bytes": 7085,
-    "sha256": "b7665f2a39bc70cb25d3caff998da5f19edb961205208bae77cd5dd7145da290"
+    "bytes": 7520,
+    "sha256": "5edd654a2e9b1c3f9ce785354c99768ad70e4b534f34a99998e7d4d3cc6c1382"
   },
   {
     "path": "frontend/src/components/SourceList.tsx",
@@ -371,8 +371,8 @@
   },
   {
     "path": "frontend/src/styles.css",
-    "bytes": 29610,
-    "sha256": "976dd31cfc230e51124c704262c2c3aab76c93bbc22fe3c90c6fff1455abde78"
+    "bytes": 29728,
+    "sha256": "a43ef88ae908e124f2e6fe8fb4b854876a7eac5c23c4c0f8a75604166ad54079"
   },
   {
     "path": "frontend/src/tokens.css",
@@ -386,8 +386,8 @@
   },
   {
     "path": "frontend/tests/a-workspace.spec.ts",
-    "bytes": 15508,
-    "sha256": "303cec975ebd06d313c1e55a040ebe4dabacd72fefeb78c73dd613ca2aa28f5e"
+    "bytes": 16885,
+    "sha256": "df44db5dd26caa6d64f5713a5a9f9b54b0d1065095b5967b192fd93f5c918dc3"
   },
   {
     "path": "frontend/tests/api.test.ts",

@@ -24,11 +24,18 @@ export default function PdfReader({ onUpload, uploadDisabled, position, title, o
   useEffect(() => {
     const element = host.current;
     if (!element) return;
-    const observer = new ResizeObserver(entries => setWidth(Math.max(200, entries[0].contentRect.width - 48)));
+    const observer = new ResizeObserver(entries => {
+      // contentRect already excludes padding. Hidden tabs must not resize the PDF.
+      const measured = entries[0].contentRect.width;
+      if (measured <= 0) return;
+      const next = Math.max(1, Math.floor(measured));
+      setWidth(previous => previous === next ? previous : next);
+    });
     observer.observe(element); return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    setPdf(null); setError('');
+    setPdf(null); setError(''); setRendering(false);
+    canvasHost.current?.replaceChildren();
     if (!id) return;
     let stopped = false;
     setLoading(true);
@@ -64,7 +71,9 @@ export default function PdfReader({ onUpload, uploadDisabled, position, title, o
       if (!stopped) container.replaceChildren(canvas);
     })().catch(e => { if (!stopped && e?.name !== 'RenderingCancelledException') setError('这一页暂时无法显示，请重试或打开原 PDF。'); })
       .finally(() => { if (!stopped) setRendering(false); });
-    return () => { stopped = true; render?.cancel(); container.replaceChildren(); };
+    // Keep the last completed bitmap until the replacement is fully rendered.
+    // Clearing it here changes scrollbars/width and can retrigger ResizeObserver.
+    return () => { stopped = true; render?.cancel(); };
   }, [pdf, page, width, zoom]);
   return <section className="reader panel" aria-label="PDF 阅读器">
     <div className="reader-top"><div className="reader-file"><FileText size={17} /><span>{title || '课程材料'}</span></div>
