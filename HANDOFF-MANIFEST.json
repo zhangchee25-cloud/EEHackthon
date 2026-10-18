@@ -226,8 +226,8 @@
   },
   {
     "path": "docs/评委复现风险与排查.md",
-    "bytes": 11619,
-    "sha256": "77c3259de9dc999d1c64892ffc420bc9a358b198bb0b4b0824f53a319ac848cd"
+    "bytes": 12939,
+    "sha256": "708b55b933079acde3371cdf46b2b49d09c23e8726fea4dbb050f3b75baf3e32"
   },
   {
     "path": "examples/README.md",
@@ -336,8 +336,8 @@
   },
   {
     "path": "frontend/src/api.ts",
-    "bytes": 7305,
-    "sha256": "74a421c1a63b63a6e4204aa0e0135a335c08faf24a07c38b9b57432f7d9ccea5"
+    "bytes": 7666,
+    "sha256": "d6ba30946162e609271b66c5829146bf4757c45638e00420d096c401358a0fc8"
   },
   {
     "path": "frontend/src/components/BackgroundPaths.tsx",
@@ -441,8 +441,8 @@
   },
   {
     "path": "frontend/tests/ai-board.test.ts",
-    "bytes": 1986,
-    "sha256": "781c39bc86fd551bd3eaa11aafa1652d682977f8e92d1b0b68f2b5b8b0cc09de"
+    "bytes": 2801,
+    "sha256": "7482448ebe4ca7a591092f7d29b68519cafcaa7b8aa20489a8f384e60f3afbe5"
   },
   {
     "path": "frontend/tests/api.test.ts",

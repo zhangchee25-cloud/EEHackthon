@@ -13,6 +13,9 @@ async function request(path: string, init: RequestInit = {}, timeout = 20000): P
     if (!res.ok) {
       const body = data as {error?: string | {message?:string;code?:string;details?:Record<string,unknown>};detail?:string;message?:string} | null;
       const error = body?.error;
+      if (res.status === 405 && /^\/courses\/[^/]+\/board\/(generate|apply)$/.test(path)) {
+        throw new ApiError('当前连接的后端未提供 AI 白板接口。请停止旧后端，在本项目根目录重新运行 python -m backend，并检查 /api 代理地址。（HTTP 405）', 405, typeof error === 'object' ? error?.code : undefined);
+      }
       throw new ApiError(`${typeof error === 'object' ? error?.message || '请求失败' : error || body?.detail || body?.message || '请求失败'}（HTTP ${res.status}）`, res.status, typeof error === 'object' ? error?.code : undefined, typeof error === 'object' ? error?.details : undefined);
     }
     return data;

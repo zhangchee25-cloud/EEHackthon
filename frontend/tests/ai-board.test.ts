@@ -21,3 +21,14 @@ it('rejects previews for another course and carries revision conflicts back to t
  await expect(api.generateBoard('other','构建知识关系','request')).rejects.toThrow('课程不匹配');
  await expect(api.applyBoard('course','preview',3,2)).rejects.toMatchObject({status:409,code:'STATE_CONFLICT'});
 });
+it('explains stale backend routes for generation and apply without retrying a mutation',async()=>{
+ const fetch=vi.fn().mockImplementation(()=>Promise.resolve(new Response(JSON.stringify({error:{code:'METHOD_NOT_ALLOWED',message:'此接口不支持该请求方式。'}}),{status:405})));
+ vi.stubGlobal('fetch',fetch);
+ await expect(api.generateBoard('course','梳理概念','request')).rejects.toThrow('停止旧后端');
+ await expect(api.applyBoard('course','preview',3,2)).rejects.toThrow('python -m backend');
+ expect(fetch).toHaveBeenCalledTimes(2);
+ expect(fetch.mock.calls[0][0]).toBe('/api/courses/course/board/generate');
+ expect(fetch.mock.calls[0][1].method).toBe('POST');
+ expect(fetch.mock.calls[1][0]).toBe('/api/courses/course/board/apply');
+ expect(fetch.mock.calls[1][1].method).toBe('POST');
+});
