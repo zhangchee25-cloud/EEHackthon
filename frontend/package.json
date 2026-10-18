@@ -1,0 +1,38 @@
+{
+  "name": "freebbs-study-space",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --configLoader runner",
+    "build": "tsc -b && vite build --configLoader runner",
+    "preview": "vite preview --host 127.0.0.1 --configLoader runner",
+    "test": "vitest run",
+    "postinstall": "node scripts/copy-pdf-assets.mjs",
+    "test:fixture": "node tests/fixture-server.mjs",
+    "test:ui": "playwright test -c playwright.a.config.ts",
+    "test:screenshots": "node scripts/ui-screenshots.mjs",
+    "test:ui:legacy": "playwright test -c playwright.config.ts",
+    "package:a": "python3 scripts/package-a.py"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "pdfjs-dist": "^5.4.296",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.0",
+    "vitest": "^3.2.0"
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  }
+}

@@ -95,12 +95,12 @@ class ModelClient:
             raise AppError("MODEL_INVALID_RESPONSE", "平台未提供兼容的模型列表。请在本地配置平台公布的模型名称。", 502)
         return sorted({item["id"] for item in data if isinstance(item, dict) and isinstance(item.get("id"), str)})
 
-    def generate(self, question, chunks):
+    def generate(self, question, chunks, system_prompt=SYSTEM_PROMPT):
         if not self.config.model:
             raise AppError("MODEL_NOT_CONFIGURED", "尚未指定模型名称，请在后端本机配置 MODEL_NAME。", 503)
         user = json.dumps({"question": question, "courseSegments": chunks}, ensure_ascii=False)
         if self.config.api_style == "responses":
-            body = {"model": self.config.model, "instructions": SYSTEM_PROMPT, "input": user,
+            body = {"model": self.config.model, "instructions": system_prompt, "input": user,
                     "max_output_tokens": self.config.max_output_tokens, "store": False}
             if self.config.strict_json:
                 body["text"] = {"format": {"type": "json_object"}}
@@ -121,7 +121,7 @@ class ModelClient:
                             texts.append(part["text"])
             content = "".join(texts)
         else:
-            body = {"model": self.config.model, "messages": [{"role": "system", "content": SYSTEM_PROMPT},
+            body = {"model": self.config.model, "messages": [{"role": "system", "content": system_prompt},
                       {"role": "user", "content": user}], "max_tokens": self.config.max_output_tokens, "stream": False}
             if self.config.strict_json:
                 body["response_format"] = {"type": "json_object"}

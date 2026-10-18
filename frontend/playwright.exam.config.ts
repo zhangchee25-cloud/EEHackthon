@@ -1,0 +1,3 @@
+import {defineConfig} from '@playwright/test';
+import base from './playwright.a.config';
+export default defineConfig({...base,testMatch:['exam-prep.spec.ts'],outputDir:'./test-results/exam',reporter:[['list']],use:{...base.use,baseURL:'http://127.0.0.1:4176'},webServer:[{command:`"${process.execPath}" tests/fixture-server.mjs`,env:{FIXTURE_PORT:'8013'},url:'http://127.0.0.1:8013/api/health',reuseExistingServer:process.env.PW_REUSE_SERVERS==='1'},{command:`"${process.execPath}" node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4176 --configLoader runner`,env:{BACKEND_URL:'http://127.0.0.1:8013'},url:'http://127.0.0.1:4176',reuseExistingServer:process.env.PW_REUSE_SERVERS==='1'}]});

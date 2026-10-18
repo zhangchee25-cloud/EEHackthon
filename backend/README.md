@@ -1,147 +1,107 @@
-# 电脑 B 交付：课程学习 Agent 后端
+# B 后端交付：课程学习 Agent
 
-本机单用户服务。负责文本 PDF 上传与逐页解析、材料范围内真实问答、服务端引用校验、学习状态与卡片持久化、复习状态规则、Markdown 导出。电脑 A 负责 React 页面。未实现 FreeBBS 登录、网络学堂、多人权限或白板。
+本机单用户 Python 服务，统一入口为项目根目录下的 `python -m backend`，默认地址 `http://127.0.0.1:8000`。本轮接口以集成人提供的 **《AB-本轮集成契约.md》（2026-10-18）** 为准；旧 `docs/api-contract.md` 只可参考旧单材料能力，不能替代本轮课程／白板契约。
 
-## 当前电脑启动
+支持学校连接页、学期／课程／文件目录、串行批次导入、课程多材料问答、单材料上传与问答、学习状态／卡片、课程白板和 Markdown 导出。实现存在不等于真实学校验收完成；当前实测范围与未验收项见 `docs/B-验收记录.md`。
 
-在项目根目录 PowerShell 执行：
+## Windows 安装与启动
 
-~~~powershell
-./backend/start.ps1
-~~~
+需要 Python 3.10+，在包含 `backend/` 的项目根目录执行：
 
-地址：http://127.0.0.1:8000/api/health 。status=ok 表示服务已启动，modelConfigured=true 只表示配置齐全，平台是否真正可用以问答结果为准。停止使用 Ctrl+C。
-
-脚本先查项目 .venv，再查系统 Python，最后查 Codex 随附 Python，不需要 npm。前台运行，终端关闭后服务停止。若 PowerShell 阻止脚本，不必修改全局策略，可以直接执行：
-
-~~~powershell
-python -m backend
-~~~
-
-当前电脑没有系统 python 命令时，可用已核对存在的运行时：
-
-~~~powershell
-& "$env:USERPROFILE/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/python.exe" -m backend
-~~~
-
-## 另一台电脑安装
-
-需要 Python 3.10+。复制 backend/、docs/api-contract.md 和 .gitignore；不要复制真实 .env、data/、日志或 __pycache__/。
-
-在项目根目录执行：
-
-~~~powershell
+```powershell
 python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r backend/requirements.txt
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r backend/requirements.txt
+python -m playwright install chromium
 Copy-Item backend/.env.example backend/.env
-~~~
+# 在本机编辑 backend/.env 后执行
+python -m backend --check-config
+python -m backend
+```
 
-在电脑 A 本地编辑 backend/.env，填写活动允许的平台配置：
+Windows 登录窗口默认启动已安装的 Microsoft Edge。若没有 Edge，在 `backend/.env` 将 `LEARN_BROWSER_EXECUTABLE` 设为已安装 Chromium／Chrome 的完整可执行文件路径；Playwright Chromium 的缓存路径可用 `python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()"` 查询。安装依赖与浏览器必须使用同一个 Python。
 
-~~~dotenv
-MODEL_BASE_URL=https://your-provider.example/v1
-MODEL_API_KEY=在本机填写
-MODEL_NAME=平台实际支持的模型ID
-MODEL_API_STYLE=chat_completions
-~~~
+若 PowerShell 不允许激活脚本，直接使用 `.\.venv\Scripts\python.exe` 替代命令里的 `python`，不必修改全局执行策略。`backend/start.ps1` 是可选快捷方式，使用相同模块入口。
 
-Base URL 填根地址或 /v1 根，不要填 /chat/completions。后端拼接 /v1/models、/v1/chat/completions 或 /v1/responses。平台重定向不会自动跟随，避免转发凭据。支持的模型、协议以实际平台为准。
+## macOS 安装与启动
 
-密钥只由后端读取，浏览器不会获得；不记录问题正文、密钥或原始平台错误。环境变量优先于 .env。修改配置后重启。
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r backend/requirements.txt
+python -m playwright install chromium
+cp backend/.env.example backend/.env
+# 在本机编辑 backend/.env 后执行
+python -m backend --check-config
+python -m backend
+```
 
-~~~powershell
-./.venv/Scripts/python.exe -m backend --check-config
-./.venv/Scripts/python.exe -m backend --list-models
-./backend/start.ps1
-~~~
+macOS 默认启动 Playwright 安装的 Chromium；也可配置 `LEARN_BROWSER_EXECUTABLE`。统一入口已给出，macOS 的实际启动／本人学校认证尚需在目标机器验收。浏览器二进制由目标机器安装，交付 ZIP 不包含本机 `vendor/` 或浏览器缓存。
 
---check-config 不发请求；--list-models 只查询平台模型名称。查询列表成功不等于对应模型的问答通过。
+## 本机配置
 
-## 对接电脑 A
+在真实 `backend/.env` 填写活动允许的平台 `MODEL_BASE_URL`、`MODEL_API_KEY`、`MODEL_NAME`，按平台选 `MODEL_API_STYLE=responses` 或 `chat_completions`。Base URL 使用根地址或 `/v1`，不要填 `/chat/completions`。环境变量优先；修改后重启服务。真实密钥只由后端读取，不放前端环境或交付包。
 
-完整接口字段见 docs/api-contract.md。前端只请求相对路径 /api/*。Vite 开发代理示意，合入 A 现有配置，不覆盖整份文件：
+`GET /api/health` 的 `modelConfigured=true` 仅表示配置齐全；模型是否可用以真实问答为准。`python -m backend --list-models` 只查询模型列表，不代替问答验收。默认 PDF 上限 **100 MB，PDF 页数不限**，上下文预算 45,000 字符；超限明确失败，目录中的 `supported` 仅代表类型／已知大小预检。
 
-~~~javascript
-server: {
-  proxy: {
-    '/api': { target: 'http://127.0.0.1:8000', changeOrigin: true }
-  }
-}
-~~~
+## 学校连接与接口接入
 
-默认允许本机 5173 和 3000 页面来源，其他端口用 ALLOWED_ORIGINS 指定。后端只绑定本机，最终演示在 A 同时运行前后端。
+1. 启动后打开 `http://127.0.0.1:8000/api/learn/connect`。本人选择校园直连或 WebVPN，并在独立学校窗口完成登录与二次认证、进入课程列表；不要向 AI 提供密码、验证码、Cookie 或认证截图。
+2. 查询 `GET /api/learn/status`，以响应状态为准。A 仅打开连接页和刷新状态，不实现学校认证。关闭独立浏览器或服务重启后可能需要本人重新认证。
+3. 顺序读取 `/api/learn/semesters`、`/api/learn/courses?semesterId=…`、`/api/learn/courses/:courseId/files`；必须保留服务端 `courseId`，不要从标题推算。`complete=false` 必须提示目录可能不完整。
+4. `POST /api/learn/imports` 提交 `{courseId,fileIds,requestId}`，HTTP 202；每 2 秒查询 `/api/learn/imports/:batchId`，终态停止。`GET /api/learn/imports?courseId=…` 恢复已有批次。重连后通过 `/api/learn/imports/:batchId/retry` 显式重试 `failed`／`needs_auth`，已成功项保留。
+5. `/api/courses/:courseId/materials` 列出已关联材料；向 `/api/courses/:courseId/ask` 提交 `{question,requestId,materialScope?}`。范围省略时使用该课程已就绪材料；固定范围须保留材料 ID 与版本。回答携带 `selectedScope`、`answerSegments`、`citations`、`limitations`，以真实页序从 1 跳页。正文以纯文本渲染。
+6. `/api/state` 完整读写并保留 `revision`、`activeCourseId`、所有课程卡片及 `card.courseId`。每种保存队列只允许一个在途 PUT。409 `STATE_CONFLICT` 后保留草稿，读取最新状态再由用户合并。
+7. `/api/courses/:courseId/board` 完整读写 `revision/nodes/edges`，拖动结束再保存。节点引用该课程已保存卡片，删除节点不删卡片；409 `BOARD_CONFLICT` 保留草稿。`GET /api/export` 导出 Markdown。
 
-接入顺序：
+保留旧入口 `POST /api/materials`（multipart `file`）、`POST /api/ask`、`GET /api/materials/:materialId` 和 `/file`。不要手动设置 multipart boundary。失败统一为 `{error:{code,message,details?}}`；不能把登录 HTML、解析失败或模型失败标为成功材料／答案。
 
-1. GET /api/health，显示模型配置状态和“本机演示”。
-2. POST /api/materials，FormData 的 file 字段；不要手动设置 multipart Content-Type。
-3. 将 fileUrl 交给 PDF 阅读器，以文件页序跳页；原文件支持 Range 和 HEAD。
-4. POST /api/ask，传本次 materialId、question、可选 requestId，将响应标为“AI 草稿”。
-5. GET /api/state，编辑后带当前 revision 完整 PUT 回去，成功后再显示已保存。
-6. 打开 /api/export 下载卡片 Markdown。
+A 访问同源 `/api`，开发／预览代理目标 `http://127.0.0.1:8000`。默认允许本机 5173、4173、3000 来源；其他端口设置 `ALLOWED_ORIGINS`。本服务绑定本机，不需要公网部署。
 
-不要把密钥放到 Vite 环境变量或前端包，不要在失败时显示固定成功答案。
+## 数据与出处
 
-## 数据与卡片规则
+默认 `backend/data/` 保存 SQLite、材料 PDF 与课程关联；不要交付它。停服务后复制完整目录备份，不单拷运行中的 SQLite 文件。同内容复用材料、变化内容保留旧版本。中断导入重启后恢复为可重试失败，不长期停在下载中。
 
-- 默认 backend/data/ 保存 SQLite workspace.sqlite3 与 materials/ 中按服务端唯一 ID 命名的 PDF。
-- 目标、下次目标、阅读位置、卡片及来源快照原子保存，重启恢复，不依赖 localStorage。
-- 保存须带 revision；过期版本返回 409。前端保留草稿、重新读取再合并，保存请求串行发送。
-- 修改已保存卡片正文后，服务端强制恢复 to_review，清除当前自检时间；再次标记已自检需要独立保存。
-- 创建与更新时间由服务端产生；无变化卡片不虚增更新时间。
-- 完整 cards 数组中漏掉旧卡片即删除，前端须合并全部应保留卡片再保存。
-- requestId 可重放已成功问题，同一 ID 改材料或问题返回冲突。失败不会保存成成功答案。
-- 同内容重复上传复用材料；同名不同内容生成新 ID，不覆盖旧文件。旧卡片的来源仍可打开。
-- 数据迁移前先正常停服务，复制完整 data/，不要只拷贝运行中的单个 SQLite 文件。交付包不含个人数据。
+每条引用都经材料／版本／课程归属、片段和逐字摘录校验；页序映射原 PDF。材料不足返回空答案与空引用及明确限制。超预算使用中文字符／双字及英文词汇检索，并说明仅检索部分片段；正确归属和摘录不等于语义已获证明，仍需本人核对主要结论。
 
-## 问答与出处边界
+状态迁移给缺失的课程字段补 null；服务端产生时间戳，正文改写强制恢复 `to_review`。保存完整 cards 时漏掉旧卡片即删除，前端须保留未显示课程的卡片。白板验证节点卡片课程归属、唯一 ID、有限坐标及合法边端点后原子保存。
 
-每次仅一份选定材料。默认上传上限 5 MB、20 页，上下文上限 45,000 字符，问题上限 4,000 字符。超限提示拆分 PDF，不静默截断后声称读完整份材料。
+## 验证与交付
 
-PDF 在子进程逐页提取，25 秒超时终止。扫描件、无文字、加密、坏文件分别提示错误；部分空页/失败页记录 warnings 并进入问答限制。按页拆片段，不跨页。
-
-模型生成结论段、片段 ID、逐字摘录；服务端映射真实文件、版本和页序，拒绝材料外 ID、伪摘录、无引用结论。摘录比较允许 PDF 提取的空白差异。关联有效不保证语义被支持，仍须人工核对主要结论。
-
-材料不足返回 supported=false、空答案与引用，以及明确 limitations，不联网补答。前端将所有回答与材料当作非可信文本，Markdown 禁用原始 HTML，不直接注入页面。
-
-## 验证
-
-离线测试不消耗真实额度，模型桩仅存在于 tests；PDF、数据库、HTTP 与协议传输真实执行：
-
-~~~powershell
+```bash
 python -m pip install -r backend/requirements-dev.txt
 python -m unittest discover -s backend/tests -v
-~~~
+python -m backend.package_handoff
+python -m backend.tests.verify_handoff
+```
 
-真实验收会发送项目自制三页讲义到本机配置的平台，消耗模型额度：
+离线测试中的学校／模型桩只用于测试，不能代替真实学校访问或真实模型验收。隔离包验证不携带凭据，只检查源码完整性、实际 PDF 解析、HTTP 状态保存与进程重启恢复。
 
-~~~powershell
-python -m backend.verify_live
-~~~
+以下命令会调用本机配置的真实平台、消耗额度，仅使用自制示例材料：
 
-报告：backend/test-results/live-acceptance.json。流程通过 HTTP 验证上传 → 材料内两问 → 材料外一问 → 保存 → 自检 → 改写重置 → 重启恢复 → 导出。支持 --smoke 少问两个问题，--api-style responses 显式换协议；不会静默换模型或供应商。真实报告与模型桩测试分别记录。
+```bash
+python -m backend.verify_live --pdf examples/signals-systems-demo.pdf
+```
 
-## 文件职责
+该命令验证旧单材料问答与状态链路，**不代表真实学校两份 PDF 或课程多材料问答验收通过**。本轮真实学校与课程模型结果分别记录到 B 验收记录，待实测项明确标注。
 
-| 文件 | 职责 |
-| --- | --- |
-| config.py | 配置、URL、容量限制 |
-| server.py | HTTP、multipart、PDF Range、来源限制、错误响应 |
-| pdf_worker.py | 独立进程按页提取 PDF |
-| model.py | 真实平台请求、两种协议适配 |
-| service.py | 材料、出处、卡片、状态与导出业务 |
-| storage.py | SQLite 元数据、答案和状态持久化 |
-| tests/ | 离线集成测试与自制 PDF |
-| verify_live.py | 明确启用的真实平台验收 |
+学校实测脚本 `python -m backend.verify_school_live --course-id <本机课程ID> --batch-id <已完成批次ID>` 复用本人已登录的本机服务，核对目录、已导入原 PDF／页数，并对同批文件重复导入检查去重与 requestId／ready 项重试幂等。它会创建一个重复导入批次，不调用模型或读取认证字段；本机报告 `backend/test-results/school-live.json` 不进入交付包。
 
-这是电脑 B 的后端交付；电脑 A 还需要 PDF 页面控制、按钮/状态交互和浏览器界面验收。
+仅在本人明确授权把指定 PDF 的相关片段发送到该脚本限定的平台后，运行：`python -m backend.verify_school_course_qa --course-id <本机课程ID> --material-ids <获授权材料ID1> <获授权材料ID2> --question "你的综合问题"`。它以只读备份建立临时工作区，检索总预算 6,500 字符的相关片段，调用真实模型并通过 HTTP 验证来源、三张卡片、三节点两条线及测试服务重启恢复；不修改主演示学习状态。报告、临时副本和所有私人课程／材料 ID 均不入包，脚本源码不固化私人 ID。该命令会消耗模型额度，不在普通离线测试中自动运行。
 
-## 当前平台实测与交接
+课程模型验收见 `python -m backend.verify_school_course_qa --help`。只在独立本地副本中检索两份已导入PDF的必要片段，预算6500字符；运行前须本人授权将课程片段发送到配置平台。随后通过HTTP保存三张卡和三节点两条线，再重启测试服务核对恢复。私有报告与临时副本不进入源码包。
 
-已切换到用户新提供的接口，实际验证 gpt-6.1-sol 的 Responses 协议。模型列表查询、中文 PDF 真实问答和完整学习记录链路均已通过。本机私有配置选择 responses。
+`python -m backend.package_handoff` 在 **`backend/deliverables/learning-agent-backend.zip`** 生成 B 候选源码包与文件 SHA-256 清单，供集成人组装最终包。显式白名单仅含 `backend/` 源码、`examples/` 自制材料和 `docs/B-验收记录.md`；排除 `vendor/`、`data/`、真实 `.env`、报告、会话、日志、教师 PDF、frontend 和根文档。目标机重新安装依赖／浏览器并填写自己的配置。
 
-2026-10-18 验证结果：16 项离线集成测试全部通过；新平台真实 HTTP 三问验收的 18 个检查点全部通过，包括材料内两问、材料外拒答、正确页序、卡片与来源保存、自检、改写重置、重启恢复和导出。详见 docs/backend-acceptance.md 与 docs/backend-verification.json。旧平台的并发错误报告仅作排错历史，不再代表当前结果。
+容量配置：`MAX_FILE_MB` 默认 100（可继续调大），PDF 不设页数或提取文字总量上限；旧 `MAX_PDF_PAGES` 已停用。解析超时默认 120 秒，可用 `PDF_PARSE_TIMEOUT_SECONDS` 调整。单文件问答仍有上下文预算，课程问答使用相关片段检索；导入成功不代表模型每次读取全部页面。
 
-复现真实验收：python -m backend.verify_live --pdf examples/signals-systems-demo.pdf 。遇到平台 429，服务仅等待 3 秒重试一次，仍失败就明确报错，不无限循环消耗请求。真实运行仍依赖平台网络、密钥和额度。
 
-平台地址、密钥、个人材料不进入交接包。使用 python -m backend.package_handoff 在 deliverables/ 生成明确白名单的源码包，自动扫描确保不含本机密钥或 data/。电脑 A 可以直接复制 docs/frontend-api.ts 到自己的前端接口层，再按 api-contract.md 接入。
+## v5 真题复习与常用文件
+
+课程内可直接上传 PDF、DOCX、PPTX、Markdown（.md/.markdown）、TXT。旧 .doc/.ppt 需要本机安装 LibreOffice，缺失时提示另存为新格式；不自动安装。非PDF保留原件并生成文字阅读版PDF，PPTX引用页对应幻灯片序号，Word/文本引用页是重排的阅读页。图片、公式、图表与原始排版不完整保留，扫描/OCR仍不支持。
+
+课程工具栏“真题与练习”中上传或选已有材料，填写年份和期中/期末，加入真题库。可选1–10份真题，分析最多12个考点，并请求1–5道原创类似题。真题引用与讲义引用分别校验，报告保存在SQLite；真题不参与默认讲义范围。相关卡片基于标题关键词匹配，结果需自行核对。分析预算有限时明确标注只覆盖代表片段，不作完整考点频率统计或考试预测。
+
+接口：POST /api/courses/:id/materials（multipart file）；GET/POST /api/courses/:id/exams；POST /api/courses/:id/exams/analyze（requestId, examMaterialIds, instruction, practiceCount）。练习答案为AI参考解答，默认折叠。重复同requestId返回已有报告，不重复调用模型。
+
+真实模型验收：python -m backend.verify_exams，仅使用脚本自制Markdown材料，不读取个人课程；会调用配置平台。2026-10-18该验收7项通过，得到2个考点及2道原创练习。

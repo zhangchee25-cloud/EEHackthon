@@ -8,6 +8,7 @@ import threading
 import uuid
 
 from .errors import AppError
+from .document_worker import SUPPORTED_EXTENSIONS
 from .model import ModelClient
 from .storage import Store, now
 
@@ -44,6 +45,9 @@ class WorkspaceService:
         self.model = model_client or ModelClient(config)
         self.upload_lock = threading.Lock()
         self.ask_lock = threading.Lock()
+        self.import_lock = threading.Lock()
+        from .courses import CourseService
+        self.courses = CourseService(self)
 
     def health(self):
         missing = [key for key, value in (("MODEL_BASE_URL", self.config.base_url),
@@ -51,17 +55,18 @@ class WorkspaceService:
         return {"status": "ok", "mode": "local_single_user", "modelConfigured": not missing,
                 "missingSettings": missing, "model": self.config.model or None,
                 "apiStyle": self.config.api_style,
-                "limits": {"maxFileBytes": self.config.max_file_bytes, "maxPdfPages": self.config.max_pages,
+                "limits": {"maxFileBytes": self.config.max_file_bytes, "maxPdfPages": None,
                            "maxContextChars": self.config.max_context_chars},
-                "notice": "本机单用户演示，未接入 FreeBBS 登录或网络学堂。"}
+                "notice": "本机单用户学习空间；网络学堂需本人连接；未接入 FreeBBS。"}
 
     def upload(self, filename, content):
         title = re.split(r"[/\\]", filename)[-1].strip() if isinstance(filename, str) else ""
-        if not title.lower().endswith(".pdf") or not title or len(title) > 200:
-            raise AppError("FILE_TYPE_UNSUPPORTED", "请上传文件名不超过 200 字符的文本 PDF。", 415)
+        extension = Path(title).suffix.lower()
+        if extension not in SUPPORTED_EXTENSIONS or not title or len(title) > 200:
+            raise AppError("FILE_TYPE_UNSUPPORTED", "请上传文件名不超过 200 字符的 PDF、DOCX、PPTX、Markdown 或 TXT；旧 DOC/PPT 需安装 LibreOffice。", 415)
         if not content or len(content) > self.config.max_file_bytes:
             raise AppError("FILE_TOO_LARGE", f"文件为空或超过 {self.config.max_file_bytes // 1024 // 1024} MB。", 413)
-        if not content.lstrip()[:8].startswith(b"%PDF-"):
+        if extension == '.pdf' and not content.lstrip()[:8].startswith(b"%PDF-"):
             raise AppError("PDF_INVALID", "文件不是有效 PDF；登录网页或改后缀文件不能作为 PDF 上传。", 415)
         digest = hashlib.sha256(content).hexdigest()
         with self.upload_lock:
@@ -76,21 +81,25 @@ class WorkspaceService:
                 with self.store.connect() as db:
                     db.execute("UPDATE materials SET status='processing',error=NULL WHERE id=?", (material_id,))
             path = self.store.files_dir / (material_id + ".pdf")
-            temporary = path.with_suffix(".tmp")
+            original = path if extension == '.pdf' else self.store.files_dir / (material_id + '.original' + extension)
+            temporary = original.with_suffix(original.suffix + ".tmp")
             try:
                 temporary.write_bytes(content)
-                temporary.replace(path)
+                temporary.replace(original)
                 try:
-                    proc = subprocess.run([sys.executable, str(Path(__file__).with_name("pdf_worker.py")),
-                                           str(path), str(self.config.max_pages)],
-                                          capture_output=True, text=True, encoding="utf-8", timeout=25,
+                    worker = 'pdf_worker.py' if extension == '.pdf' else 'document_worker.py'
+                    args = [sys.executable, str(Path(__file__).with_name(worker)), str(original)]
+                    if extension != '.pdf':
+                        args.append(str(path))
+                    proc = subprocess.run(args,
+                                          capture_output=True, text=True, encoding="utf-8", timeout=self.config.pdf_parse_timeout,
                                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
                 except subprocess.TimeoutExpired:
-                    raise AppError("PDF_PARSE_TIMEOUT", "PDF 解析超过 25 秒，请换用更短的文本 PDF。", 422) from None
+                    raise AppError("PDF_PARSE_TIMEOUT" if extension == '.pdf' else "DOCUMENT_PARSE_TIMEOUT", f"文档解析超过 {self.config.pdf_parse_timeout:g} 秒，可提高 PDF_PARSE_TIMEOUT_SECONDS 后重试。", 422) from None
                 try:
                     result = json.loads(proc.stdout)
                 except (ValueError, TypeError):
-                    raise AppError("PDF_PARSE_FAILED", "PDF 解析进程失败，请确认依赖安装后重新上传。", 422) from None
+                    raise AppError("PDF_PARSE_FAILED" if extension == '.pdf' else "DOCUMENT_PARSE_FAILED", "文档解析进程失败，请确认依赖安装后重新上传。", 422) from None
                 if "error" in result:
                     raise AppError(result["error"], result["message"], 422)
                 self.store.finish_material(material_id, result["pages"], result["warnings"])
@@ -135,7 +144,7 @@ class WorkspaceService:
         try:
             previous = self.store.answer_by_request(request_id)
             if previous:
-                if previous["materialId"] != material_id or previous["question"] != question:
+                if previous["result"].get("courseId") or previous["materialId"] != material_id or previous["question"] != question:
                     raise AppError("REQUEST_ID_CONFLICT", "同一 requestId 不能用于不同问题或材料。", 409)
                 return previous["result"]
             self.file(material_id)
@@ -157,9 +166,11 @@ class WorkspaceService:
         return {k: v for k, v in usage.items() if k in ("prompt_tokens", "completion_tokens", "total_tokens",
                   "input_tokens", "output_tokens") and isinstance(v, int) and not isinstance(v, bool) and v >= 0}
 
-    def verify_answer(self, output, material, chunks):
+    def verify_answer(self, output, material, chunks, materials=None):
         def invalid(message):
             raise AppError("INVALID_CITATION", message, 502)
+        if not isinstance(output, dict):
+            invalid("模型回答必须为结构化对象。")
         supported = output.get("supported")
         limitations = output.get("limitations", [])
         segments = output.get("answerSegments", [])
@@ -169,10 +180,12 @@ class WorkspaceService:
             invalid("模型的依据不足说明格式不合法。")
         if not isinstance(segments, list) or len(segments) > 30:
             invalid("模型回答段落格式不合法。")
+        multi_material = materials is not None
+        materials = materials if multi_material else ([material] if material is not None else [])
+        material_map = {m["materialId"]: m for m in materials}
         result = {"supported": supported, "answerSegments": [], "citations": [],
-                  "selectedScope": [{"materialId": material["materialId"], "versionId": material["versionId"],
-                                     "title": material["title"]}],
-                  "limitations": list(dict.fromkeys(material["warnings"] + limitations))}
+                  "selectedScope": [{k: m[k] for k in ("materialId", "versionId", "title")} for m in materials],
+                  "limitations": list(dict.fromkeys([warning for m in materials for warning in m["warnings"]] + limitations))}
         if not supported:
             if segments:
                 invalid("模型在声明依据不足时仍返回结论，已拒绝展示，请重试。")
@@ -182,6 +195,8 @@ class WorkspaceService:
         if not segments:
             invalid("模型未提供带出处的结论。")
         chunk_map = {c["segmentId"]: c for c in chunks}
+        if len(chunk_map) != len(chunks):
+            invalid("材料片段标识重复，无法唯一确定出处。")
         seen = {}
         prefix = uuid.uuid4().hex
         for index, segment in enumerate(segments, 1):
@@ -195,6 +210,13 @@ class WorkspaceService:
                 if not isinstance(source, dict) or not isinstance(source.get("segmentId"), str) or source["segmentId"] not in chunk_map:
                     invalid("模型引用了本次材料以外的片段，已拒绝此回答。")
                 chunk = chunk_map[source["segmentId"]]
+                source_material = material_map.get(chunk.get("materialId")) if multi_material else material
+                if source_material is None or (multi_material and chunk.get("versionId") != source_material["versionId"]) or (not multi_material and chunk.get("materialId", source_material["materialId"]) != source_material["materialId"]):
+                    invalid("引用片段不属于本次材料版本集合。")
+                if not multi_material and chunk.get("versionId", source_material["versionId"]) != source_material["versionId"]:
+                    invalid("引用片段不属于本次材料版本集合。")
+                if type(chunk.get("page")) is not int or not 1 <= chunk["page"] <= source_material["pageCount"]:
+                    invalid("引用片段页序超出材料范围。")
                 quote = source.get("quote")
                 if not isinstance(quote, str) or not 2 <= len(quote.strip()) <= 1800:
                     invalid("模型引用摘录为空、过短或过长。")
@@ -205,8 +227,8 @@ class WorkspaceService:
                 if key not in seen:
                     citation_id = "cit_" + prefix + "_" + str(len(seen) + 1)
                     seen[key] = citation_id
-                    result["citations"].append({"id": citation_id, "materialId": material["materialId"],
-                        "versionId": material["versionId"], "title": material["title"],
+                    result["citations"].append({"id": citation_id, "materialId": source_material["materialId"],
+                        "versionId": source_material["versionId"], "title": source_material["title"],
                         "pageStart": chunk["page"], "pageEnd": chunk["page"], "quote": quote})
                 citation_ids.append(seen[key])
             result["answerSegments"].append({"id": "seg_" + str(index), "text": segment["text"].strip(),
@@ -228,11 +250,15 @@ class WorkspaceService:
         return source
 
     def validate_state(self, body, old):
-        if set(body) - {"revision", "goal", "nextStep", "readingPosition", "cards", "updatedAt"}:
+        if not isinstance(body, dict) or set(body) - {"revision", "activeCourseId", "goal", "nextStep", "readingPosition", "cards", "updatedAt"}:
             raise AppError("INVALID_INPUT", "学习状态包含未约定字段。", 422)
         result = {"goal": text_field(body.get("goal"), "goal", 1000),
                   "nextStep": text_field(body.get("nextStep"), "nextStep", 2000),
                   "readingPosition": None, "cards": []}
+        active = body.get("activeCourseId", old.get("activeCourseId"))
+        if active is not None:
+            self.courses.repo.course(identifier(active, "activeCourseId"))
+        result["activeCourseId"] = active
         position = body.get("readingPosition")
         if position is not None:
             if not isinstance(position, dict):
@@ -266,6 +292,16 @@ class WorkspaceService:
                 raise AppError("INVALID_SOURCE", "卡片来源必须为数组且不超过 50 条。", 422)
             refs = [self.validate_source(source) for source in refs]
             prior = old_cards.get(card_id)
+            origin = card.get("origin", (prior or {}).get("origin", "unknown"))
+            if origin in (None, ""):
+                origin = (prior or {}).get("origin") or "unknown"
+            if origin not in ("ai", "manual", "unknown"):
+                raise AppError("INVALID_INPUT", "卡片来源标记不合法。", 422)
+            course_id = card.get("courseId", (prior or {}).get("courseId"))
+            if course_id is not None:
+                self.courses.repo.course(identifier(course_id, "card.courseId"))
+                if any(not self.courses.repo.contains(course_id, ref["materialId"], ref["versionId"]) for ref in refs):
+                    raise AppError("INVALID_SOURCE", "卡片来源包含其他课程材料。", 422)
             if prior and prior["body"] != content:
                 status = "to_review"
             created = prior["createdAt"] if prior else timestamp
@@ -275,9 +311,10 @@ class WorkspaceService:
             elif not prior or prior["reviewStatus"] != "self_checked":
                 checked = timestamp
             changed = not prior or any((prior["title"] != title, prior["body"] != content,
-                        prior["reviewStatus"] != status, prior["sourceRefs"] != refs))
-            result["cards"].append({"id": card_id, "title": title, "body": content, "sourceRefs": refs,
-                "reviewStatus": status, "createdAt": created, "updatedAt": timestamp if changed else prior["updatedAt"],
+                        prior["reviewStatus"] != status, prior["sourceRefs"] != refs, prior.get("courseId") != course_id,
+                        prior.get("origin", "unknown") != origin))
+            result["cards"].append({"id": card_id, "courseId": course_id, "title": title, "body": content, "sourceRefs": refs,
+                "origin": origin, "reviewStatus": status, "createdAt": created, "updatedAt": timestamp if changed else prior["updatedAt"],
                 "selfCheckedAt": checked})
         return result
 
@@ -292,6 +329,7 @@ class WorkspaceService:
                  "本次目标：" + state["goal"], "下次继续：" + state["nextStep"], ""]
         for card in state["cards"]:
             lines.extend(["## " + card["title"].replace("\n", " "), "", card["body"], "",
+                          "内容来源：" + {"ai": "AI 生成", "manual": "本人撰写", "unknown": "未标记"}.get(card.get("origin"), "未标记"),
                           "复习状态：" + ("已自检" if card["reviewStatus"] == "self_checked" else "待复习"),
                           "创建时间：" + card["createdAt"], "更新时间：" + card["updatedAt"], ""])
             if card["sourceRefs"]:
@@ -300,5 +338,5 @@ class WorkspaceService:
                     lines.extend([f"- {source['title']}，文件第 {source['pageStart']} 页；版本 {source['versionId']}",
                                   "  原文摘录：" + source["quote"].replace("\n", " "), ""])
             else:
-                lines.extend(["来源：手写理解卡片，无材料来源。", ""])
+                lines.extend(["材料引用：无材料来源。", ""])
         return "\n".join(lines)

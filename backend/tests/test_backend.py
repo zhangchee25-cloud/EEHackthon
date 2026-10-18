@@ -9,6 +9,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from unittest.mock import patch
 
 from backend.config import Config
 from backend.errors import AppError
@@ -78,10 +79,39 @@ class BackendTests(unittest.TestCase):
         stream = BytesIO()
         writer.write(stream)
         self.assert_error("PDF_ENCRYPTED", self.service.upload, "encrypted.pdf", stream.getvalue())
-        self.assert_error("PDF_PAGE_LIMIT", self.service.upload, "too-many.pdf", make_pdf(["text"] * 21))
+        long_pdf = self.service.upload("long.pdf", make_pdf(["text"] * 251))
+        self.assertEqual(long_pdf["pageCount"], 251)
+        self.assertEqual(long_pdf["status"], "ready")
         small = WorkspaceService(replace(self.config, max_file_bytes=100), self.model)
         self.assert_error("FILE_TOO_LARGE", small.upload, "large.pdf", self.pdf)
         self.assertTrue(all(m["status"] != "processing" for m in self.service.store.list_materials()))
+
+    def test_large_pdf_and_extracted_text_are_importable(self):
+        # A real PDF attachment takes this file beyond the former 5 MB limit.
+        from pypdf import PdfReader, PdfWriter
+        writer = PdfWriter()
+        writer.append(PdfReader(BytesIO(self.pdf)))
+        writer.add_attachment("notes.bin", b"x" * (6 * 1024 * 1024))
+        stream = BytesIO()
+        writer.write(stream)
+        material = self.service.upload("large.pdf", stream.getvalue())
+        self.assertEqual(material["status"], "ready")
+        self.assertGreater(len(stream.getvalue()), 5 * 1024 * 1024)
+        # Importing long text is independent of the model's context budget.
+        dense = self.service.upload("dense.pdf", make_pdf(["Evidence " * 200] * 180))
+        pages = self.service.store.material(dense["materialId"])["pages"]
+        self.assertGreater(sum(len(p["text"]) for p in pages), 300000)
+
+    def test_capacity_defaults_ignore_legacy_pdf_page_setting(self):
+        with patch.dict("os.environ", {"MAX_PDF_PAGES": "20"}, clear=True), patch("backend.config.load_env"):
+            config = Config.from_env()
+        self.assertEqual(config.max_file_bytes, 100 * 1024 * 1024)
+        self.assertEqual(config.pdf_parse_timeout, 120)
+        self.assertIsNone(WorkspaceService(config=replace(config, data_dir=Path(self.temp.name))).health()["limits"]["maxPdfPages"])
+        with patch.dict("os.environ", {"MAX_FILE_MB": "200", "PDF_PARSE_TIMEOUT_SECONDS": "240"}, clear=True), patch("backend.config.load_env"):
+            config = Config.from_env()
+        self.assertEqual(config.max_file_bytes, 200 * 1024 * 1024)
+        self.assertEqual(config.pdf_parse_timeout, 240)
 
     @staticmethod
     def blank_pdf():

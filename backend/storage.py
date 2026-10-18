@@ -12,7 +12,7 @@ def now():
 
 
 def initial_state():
-    return {"revision": 0, "goal": "", "nextStep": "", "readingPosition": None, "cards": [], "updatedAt": None}
+    return {"revision": 0, "activeCourseId": None, "goal": "", "nextStep": "", "readingPosition": None, "cards": [], "updatedAt": None}
 
 
 class Store:
@@ -34,6 +34,12 @@ class Store:
                     request_id TEXT UNIQUE, result TEXT NOT NULL, created_at TEXT NOT NULL);
             """)
             db.execute("INSERT OR IGNORE INTO workspace(id, body) VALUES (1, ?)", (json.dumps(initial_state()),))
+            state = json.loads(db.execute("SELECT body FROM workspace WHERE id=1").fetchone()[0])
+            state.setdefault("activeCourseId", None)
+            for card in state["cards"]:
+                card.setdefault("courseId", None)
+                card.setdefault("origin", "unknown")
+            db.execute("UPDATE workspace SET body=? WHERE id=1", (json.dumps(state, ensure_ascii=False),))
             db.execute("UPDATE materials SET status='failed', error=? WHERE status='processing'",
                        ("上次解析被中断，请重新上传此文件。",))
 
@@ -99,6 +105,23 @@ class Store:
             result["revision"] = old["revision"] + 1
             result["updatedAt"] = now()
             db.execute("UPDATE workspace SET body=? WHERE id=1", (json.dumps(result, ensure_ascii=False),))
+            # Cards and their board references share this transaction. Deleting or
+            # moving a card also removes its nodes and incident edges, and changes
+            # the board revision so an older client cannot restore stale nodes.
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='boards'").fetchone():
+                card_courses = {card["id"]: card.get("courseId") for card in result["cards"]}
+                for row in db.execute("SELECT course_id,body FROM boards").fetchall():
+                    board = json.loads(row["body"])
+                    nodes = [node for node in board["nodes"]
+                             if card_courses.get(node["cardId"]) == row["course_id"]]
+                    node_ids = {node["id"] for node in nodes}
+                    edges = [edge for edge in board["edges"]
+                             if edge["source"] in node_ids and edge["target"] in node_ids]
+                    if nodes != board["nodes"] or edges != board["edges"]:
+                        board.update(nodes=nodes, edges=edges, revision=board["revision"] + 1,
+                                     updatedAt=result["updatedAt"])
+                        db.execute("UPDATE boards SET body=? WHERE course_id=?",
+                                   (json.dumps(board, ensure_ascii=False), row["course_id"]))
             return result
 
     def answer_by_request(self, request_id):
@@ -115,7 +138,12 @@ class Store:
 
     def citation_exists(self, citation):
         with self.connect() as db:
-            for row in db.execute("SELECT result FROM answers WHERE material_id=?", (citation["materialId"],)):
+            for row in db.execute("SELECT body FROM board_previews"):
+                for card in json.loads(row[0])["cards"]:
+                    for stored in card["sourceRefs"]:
+                        if stored["id"] == citation["id"]:
+                            return stored == citation
+            for row in db.execute("SELECT result FROM answers"):
                 for stored in json.loads(row[0])["citations"]:
                     if stored["id"] == citation["id"]:
                         return stored == citation

@@ -11,6 +11,8 @@ import time
 import urllib.request
 import zipfile
 
+from backend.package_handoff import source_files, ROOT
+
 
 def main():
     project = Path(__file__).resolve().parents[2]
@@ -21,10 +23,12 @@ def main():
             raise AssertionError(name)
     with tempfile.TemporaryDirectory(prefix="learning-backend-handoff-") as directory:
         root = Path(directory)
-        with zipfile.ZipFile(project / "deliverables/learning-agent-backend.zip") as archive:
+        with zipfile.ZipFile(project / "backend/deliverables/learning-agent-backend.zip") as archive:
             check("ZIP integrity", archive.testzip() is None)
             names = archive.namelist()
-            check("no private configuration or data", not any(n.endswith("/.env") or "/data/" in n or "/test-results/" in n for n in names))
+            expected = {path.relative_to(ROOT).as_posix() for path in source_files()} | {"HANDOFF-MANIFEST.json"}
+            check("exact reviewed source whitelist", set(names) == expected and len(names) == len(expected))
+            check("no private configuration or data", not any(n.endswith("/.env") or any(p in n.split("/") for p in ("data", "vendor", "test-results", "__pycache__")) for n in names))
             archive.extractall(root)
         manifest = json.loads((root / "HANDOFF-MANIFEST.json").read_text(encoding="utf-8"))
         check("all manifest hashes match", all(hashlib.sha256((root / item["path"]).read_bytes()).hexdigest() == item["sha256"] for item in manifest))
@@ -62,6 +66,8 @@ def main():
         try:
             health = start()
             check("starts from isolated directory without credentials", health["status"] == "ok" and not health["modelConfigured"])
+            connection = request("/api/learn/status")
+            check("packaged school API starts disconnected", connection["status"] == "disconnected" and connection["loginUrl"] == "/api/learn/connect")
             pdf = (root / "examples/signals-systems-demo.pdf").read_bytes()
             boundary = "portable_test_boundary"
             raw = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="demo.pdf"\r\nContent-Type: application/pdf\r\n\r\n'.encode()

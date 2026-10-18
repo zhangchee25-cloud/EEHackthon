@@ -6,11 +6,12 @@ import json
 import logging
 import re
 import socket
-from urllib.parse import quote, urlsplit, unquote
+from urllib.parse import quote, urlsplit, unquote, parse_qs
 import uuid
 
 from .errors import AppError
-from .service import WorkspaceService, public_material
+from .service import WorkspaceService, public_material, identifier, text_field
+from .learn import CONNECT_HTML
 
 LOG = logging.getLogger("learning_workspace")
 
@@ -102,7 +103,9 @@ def create_server(config, service=None, port=None):
                 raise AppError("INVALID_INPUT", "请求必须为 JSON 对象。", 422)
             return body
 
-        def upload(self):
+        def upload(self, course_id=None):
+            if course_id:
+                service.courses.repo.course(course_id)
             content_type = self.headers.get("Content-Type", "")
             if self.headers.get_content_type() != "multipart/form-data":
                 raise AppError("CONTENT_TYPE_REQUIRED", "上传需要 multipart/form-data，文件字段名为 file。", 415)
@@ -113,8 +116,14 @@ def create_server(config, service=None, port=None):
                 raise AppError("INVALID_MULTIPART", "上传数据格式不合法，请重新选择文件。", 400)
             files = [part for part in message.iter_parts() if part.get_param("name", header="content-disposition") == "file"]
             if len(files) != 1 or files[0].is_multipart() or not files[0].get_filename():
-                raise AppError("FILE_REQUIRED", "一次仅上传一份 PDF，字段名为 file。", 422)
-            return service.upload(files[0].get_filename(), files[0].get_payload(decode=True) or b"")
+                raise AppError("FILE_REQUIRED", "一次仅上传一份材料，字段名为 file。", 422)
+            result = service.upload(files[0].get_filename(), files[0].get_payload(decode=True) or b"")
+            if course_id:
+                material = service.store.material(result['materialId'])
+                with service.store.connect() as db:
+                    digest = db.execute('SELECT digest FROM materials WHERE id=?', (material['materialId'],)).fetchone()[0]
+                service.courses.repo.link(course_id, 'local_' + material['materialId'], material, digest)
+            return result
 
         def send_pdf(self, material_id):
             path, material = service.file(material_id)
@@ -137,7 +146,8 @@ def create_server(config, service=None, port=None):
                     self.send_bytes(b"", 416, headers={"Content-Range": f"bytes */{size}"})
                     return
                 status = 206
-            headers = {"Accept-Ranges": "bytes", "Content-Disposition": "inline; filename=course.pdf; filename*=UTF-8''" + quote(material["title"])}
+            download_title = material['title'] if material['title'].lower().endswith('.pdf') else material['title'] + '.pdf'
+            headers = {"Accept-Ranges": "bytes", "Content-Disposition": "inline; filename=course.pdf; filename*=UTF-8''" + quote(download_title)}
             if status == 206:
                 headers["Content-Range"] = f"bytes {start}-{end}/{size}"
             with path.open("rb") as f:
@@ -149,12 +159,34 @@ def create_server(config, service=None, port=None):
                 self.guard()
                 path = unquote(urlsplit(self.path).path).rstrip("/") or "/"
                 method = self.command
+                query = parse_qs(urlsplit(self.path).query)
                 if method == "OPTIONS":
                     self.send_bytes(b"", 204, headers={"Access-Control-Allow-Methods": "GET, HEAD, POST, PUT, OPTIONS",
                         "Access-Control-Allow-Headers": "Content-Type, Range", "Access-Control-Max-Age": "600"})
                     return
                 if method in ("GET", "HEAD"):
-                    if path == "/api/health":
+                    if path == "/api/learn/connect":
+                        self.send_bytes(CONNECT_HTML.encode("utf-8"), content_type="text/html; charset=utf-8",
+                            headers={"Content-Security-Policy": "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-ancestors 'none'"})
+                    elif path == "/api/learn/status":
+                        self.json(service.courses.learn.status())
+                    elif path == "/api/learn/semesters":
+                        self.json({"semesters": service.courses.learn.semesters()})
+                    elif path == "/api/learn/courses":
+                        self.json(service.courses.list_courses(query.get("semesterId", [None])[0]))
+                    elif match := re.fullmatch(r"/api/learn/courses/([A-Za-z0-9_-]+)/files", path):
+                        self.json(service.courses.list_files(match[1]))
+                    elif path == "/api/learn/imports":
+                        self.json({"batches": service.courses.repo.batches(identifier(query.get("courseId", [None])[0], "courseId"))})
+                    elif match := re.fullmatch(r"/api/learn/imports/([A-Za-z0-9_-]+)", path):
+                        self.json(service.courses.repo.batch(match[1]))
+                    elif match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/materials", path):
+                        self.json(service.courses.materials(match[1]))
+                    elif match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/exams", path):
+                        self.json(service.courses.exams.listing(match[1]))
+                    elif match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/board", path):
+                        self.json(service.courses.repo.board(match[1]))
+                    elif path == "/api/health":
                         self.json(service.health())
                     elif path == "/api/state":
                         self.json(service.store.state())
@@ -171,6 +203,31 @@ def create_server(config, service=None, port=None):
                         self.send_bytes("学习 Agent 后端已启动。本机单用户演示。前端请接入 /api，接口与启动说明见 backend/README.md 和 docs/api-contract.md。".encode("utf-8"), content_type="text/plain; charset=utf-8")
                     else:
                         raise AppError("NOT_FOUND", "接口不存在。", 404)
+                elif method == "POST" and path == "/api/learn/connect":
+                    body = self.read_json()
+                    self.json(service.courses.learn.transport.start(body.get("mode", "direct")), 202)
+                elif method == "POST" and path == "/api/learn/disconnect":
+                    self.read_json()
+                    service.courses.learn.transport.close()
+                    self.json(service.courses.learn.status())
+                elif method == "POST" and path == "/api/learn/imports":
+                    self.json(service.courses.start_import(self.read_json()), 202)
+                elif method == "POST" and (match := re.fullmatch(r"/api/learn/imports/([A-Za-z0-9_-]+)/retry", path)):
+                    self.json(service.courses.retry(match[1], self.read_json()))
+                elif method == "POST" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/ask", path)):
+                    self.json(service.courses.ask(match[1], self.read_json()))
+                elif method == "POST" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/materials", path)):
+                    self.json(self.upload(match[1]), 201)
+                elif method == "POST" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/exams/analyze", path)):
+                    self.json(service.courses.exams.analyze(match[1], self.read_json()))
+                elif method == "POST" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/exams", path)):
+                    self.json(service.courses.exams.register(match[1], self.read_json()))
+                elif method == "POST" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/board/generate", path)):
+                    self.json(service.courses.generate_board(match[1], self.read_json()))
+                elif method == "POST" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/board/apply", path)):
+                    self.json(service.courses.apply_board(match[1], self.read_json()))
+                elif method == "PUT" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/board", path)):
+                    self.json(service.courses.repo.save_board(match[1], self.read_json(), identifier, text_field))
                 elif method == "POST" and path == "/api/materials":
                     self.json(self.upload(), 201)
                 elif method == "POST" and path == "/api/ask":
@@ -194,6 +251,10 @@ def create_server(config, service=None, port=None):
     class Server(ThreadingHTTPServer):
         daemon_threads = True
         allow_reuse_address = True
+
+        def server_close(self):
+            service.courses.close()
+            super().server_close()
 
     if config.host not in ("127.0.0.1", "localhost"):
         raise ValueError("本机演示后端只允许绑定 127.0.0.1 或 localhost；未实现公网登录鉴权。")
