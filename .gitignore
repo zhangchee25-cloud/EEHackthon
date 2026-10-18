@@ -1,0 +1,27 @@
+# Credentials and personal runtime data
+.env
+.env.local
+.env.*.local
+.venv/
+backend/data/
+backend/logs/
+backend/test-results/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+# Generated frontend assets and reports
+node_modules/
+frontend/dist/
+frontend/public/pdf-assets/
+frontend/public/pdfjs/
+frontend/tsconfig.tsbuildinfo
+artifacts/
+test-results/
+playwright-report/
+integration-test-results/
+.DS_Store
+~$*
+
+backend/vendor/
+.handoff/
+test/

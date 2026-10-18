@@ -1,0 +1,4 @@
+# Python >=3.10; remaining runtime modules are from the Python standard library.
+pypdf==6.10.0
+playwright==1.55.0
+

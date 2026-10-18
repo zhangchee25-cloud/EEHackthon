@@ -1,0 +1,187 @@
+{
+  "browser": "Playwright / Chrome",
+  "base": "http://127.0.0.1:4173",
+  "stage": "B",
+  "pages": [
+    {
+      "name": "home",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "viewport": 1440,
+      "headerHeight": 56,
+      "fixture": false,
+      "alerts": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "name": "study",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "viewport": 1440,
+      "headerHeight": 52,
+      "readerTop": 222,
+      "fixture": false,
+      "alerts": [
+        "学习服务未连接服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+      ],
+      "errors": [],
+      "failures": [
+        {
+          "url": "http://127.0.0.1:4173/api/state",
+          "status": 500
+        },
+        {
+          "url": "http://127.0.0.1:4173/api/health",
+          "status": 500
+        }
+      ]
+    },
+    {
+      "name": "guide",
+      "width": 1440,
+      "height": 900,
+      "scrollWidth": 1440,
+      "viewport": 1440,
+      "headerHeight": 52,
+      "readerTop": 352,
+      "fixture": false,
+      "alerts": [
+        "学习服务未连接服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+      ],
+      "errors": [],
+      "failures": [
+        {
+          "url": "http://127.0.0.1:4173/api/state",
+          "status": 500
+        },
+        {
+          "url": "http://127.0.0.1:4173/api/health",
+          "status": 500
+        }
+      ]
+    },
+    {
+      "name": "home",
+      "width": 768,
+      "height": 1024,
+      "scrollWidth": 768,
+      "viewport": 768,
+      "headerHeight": 56,
+      "fixture": false,
+      "alerts": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "name": "study",
+      "width": 768,
+      "height": 1024,
+      "scrollWidth": 768,
+      "viewport": 768,
+      "headerHeight": 52,
+      "readerTop": 286,
+      "fixture": false,
+      "alerts": [
+        "学习服务未连接服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+      ],
+      "errors": [],
+      "failures": [
+        {
+          "url": "http://127.0.0.1:4173/api/state",
+          "status": 500
+        },
+        {
+          "url": "http://127.0.0.1:4173/api/health",
+          "status": 500
+        }
+      ]
+    },
+    {
+      "name": "guide",
+      "width": 768,
+      "height": 1024,
+      "scrollWidth": 768,
+      "viewport": 768,
+      "headerHeight": 52,
+      "readerTop": 416,
+      "fixture": false,
+      "alerts": [
+        "学习服务未连接服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+      ],
+      "errors": [],
+      "failures": [
+        {
+          "url": "http://127.0.0.1:4173/api/state",
+          "status": 500
+        },
+        {
+          "url": "http://127.0.0.1:4173/api/health",
+          "status": 500
+        }
+      ]
+    },
+    {
+      "name": "home",
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "viewport": 375,
+      "headerHeight": 56,
+      "fixture": false,
+      "alerts": [],
+      "errors": [],
+      "failures": []
+    },
+    {
+      "name": "study",
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "viewport": 375,
+      "headerHeight": 87,
+      "readerTop": 419,
+      "fixture": false,
+      "alerts": [
+        "学习服务未连接服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+      ],
+      "errors": [],
+      "failures": [
+        {
+          "url": "http://127.0.0.1:4173/api/state",
+          "status": 500
+        },
+        {
+          "url": "http://127.0.0.1:4173/api/health",
+          "status": 500
+        }
+      ]
+    },
+    {
+      "name": "guide",
+      "width": 375,
+      "height": 812,
+      "scrollWidth": 375,
+      "viewport": 375,
+      "headerHeight": 87,
+      "readerTop": 587,
+      "fixture": false,
+      "alerts": [
+        "学习服务未连接服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+      ],
+      "errors": [],
+      "failures": [
+        {
+          "url": "http://127.0.0.1:4173/api/state",
+          "status": 500
+        },
+        {
+          "url": "http://127.0.0.1:4173/api/health",
+          "status": 500
+        }
+      ]
+    }
+  ]
+}

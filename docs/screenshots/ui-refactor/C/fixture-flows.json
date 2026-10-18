@@ -1,0 +1,23 @@
+[
+  {
+    "width": 1440,
+    "fixtureOnly": true,
+    "checks": "ask error/retry, insufficiency, PDF/citation, rewrite gate, dialog/focus, review/filter, save failure/retry, Markdown, refresh, home draft",
+    "errors": [],
+    "overflow": false
+  },
+  {
+    "width": 768,
+    "fixtureOnly": true,
+    "checks": "ask error/retry, insufficiency, PDF/citation, rewrite gate, dialog/focus, review/filter, save failure/retry, Markdown, refresh, home draft",
+    "errors": [],
+    "overflow": false
+  },
+  {
+    "width": 375,
+    "fixtureOnly": true,
+    "checks": "ask error/retry, insufficiency, PDF/citation, rewrite gate, dialog/focus, review/filter, save failure/retry, Markdown, refresh, home draft",
+    "errors": [],
+    "overflow": false
+  }
+]
