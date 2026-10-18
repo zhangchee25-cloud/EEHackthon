@@ -186,8 +186,8 @@
   },
   {
     "path": "docs/AI白板与直接建卡更新.md",
-    "bytes": 3252,
-    "sha256": "f41fdf22ddbfbc03909d8755c02af594cc2c44a13a6fc073ccdbe083bfe153f5"
+    "bytes": 3607,
+    "sha256": "0789d8428c929c5f6762725748d78eb8fba71fb3302dff8db00dee3a31a09d33"
   },
   {
     "path": "docs/B-验收记录.md",
@@ -311,8 +311,8 @@
   },
   {
     "path": "frontend/src/App.tsx",
-    "bytes": 33631,
-    "sha256": "2cb41d6bc8850e30b9d13d3d2316e7651920d1b59ab558f863960f618edc5f13"
+    "bytes": 33653,
+    "sha256": "ad2f62d0560a67dc4c9238a0dab7b6aef49cb0b11f7f1f515e5137f466bb746a"
   },
   {
     "path": "frontend/src/components/BoardViewport.css",
@@ -325,9 +325,14 @@
     "sha256": "39dd45146f622db70805866ed04d8d1437b11c592e01774bfb1a0c4bcc79cdbd"
   },
   {
+    "path": "frontend/src/components/CardDiscussion.tsx",
+    "bytes": 4521,
+    "sha256": "7cf4f4d04974bb93f9a94d9d889850620e069abe50477154496fffb690dcd6e8"
+  },
+  {
     "path": "frontend/src/components/CardsPanel.tsx",
-    "bytes": 8077,
-    "sha256": "01ce226295b6e3de4282797c3e8992d0cd32cc819019144d40661a786942abb4"
+    "bytes": 8392,
+    "sha256": "61387d79071eca85831c1018139d3c057c7ed3525092d5eef89ce3bb5b0a9d5a"
   },
   {
     "path": "frontend/src/components/LandingPage.tsx",
@@ -421,8 +426,8 @@
   },
   {
     "path": "frontend/tests/ai-board.spec.ts",
-    "bytes": 9773,
-    "sha256": "0e6d98919e4e7b66bae1302ad3c70ae6581c8c73a4f04399b5766d75c522a804"
+    "bytes": 11832,
+    "sha256": "6dd4c82c1a39db554bff0652dff5abf68ef4fa203d196f77914800952aaf3aa6"
   },
   {
     "path": "frontend/tests/ai-board.test.ts",
@@ -492,6 +497,6 @@
   {
     "path": "README.md",
     "bytes": 7922,
-    "sha256": "7f7b3d30d903c09cafed6e2af833fceb9c507deaafd43ebec993f8eb21d10924"
+    "sha256": "7e364d5939a3dbe80fda7992fe1ea98658cc785e3ed4c54c150743b77d63dcb9"
   }
 ]

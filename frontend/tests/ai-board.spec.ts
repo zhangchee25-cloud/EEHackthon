@@ -1,5 +1,33 @@
 import {test,expect,type Page} from '@playwright/test';
 const fixture='http://127.0.0.1:8012';
+test('card discussion keeps context and survives refresh',async({page:p})=>{
+  await p.getByRole('button',{name:'AI 生成白板',exact:true}).click();
+  await p.getByRole('button',{name:'创建卡片并加入白板',exact:true}).click();
+  await expect(p.locator('.board-node')).toHaveCount(3);
+  await p.locator('.board-node').first().getByRole('button',{name:'打开卡片',exact:true}).click();
+  const discussion=p.getByRole('region',{name:'卡片 AI 讨论'});
+  const title=await p.getByLabel('卡片标题').inputValue();
+  await discussion.getByLabel('继续提问').fill('请举一个具体例子');
+  const first=p.waitForRequest(r=>r.url().includes('/courses/course-a/ask'));
+  await discussion.getByRole('button',{name:'发送讨论',exact:true}).click();
+  expect((await first).postDataJSON().question).toContain(title);
+  await expect(discussion.getByLabel('AI 讨论回答')).toHaveCount(1);
+  await discussion.getByLabel('继续提问').fill('再解释其中的因果关系');
+  const second=p.waitForRequest(r=>r.url().includes('/courses/course-a/ask'));
+  await discussion.getByRole('button',{name:'发送讨论',exact:true}).click();
+  const prompt=(await second).postDataJSON().question;
+  expect(prompt).toContain('请举一个具体例子');expect(prompt.length).toBeLessThanOrEqual(4000);
+  await expect(discussion.getByLabel('AI 讨论回答')).toHaveCount(2);
+  await discussion.getByLabel('继续提问').fill('测试失败');
+  await discussion.getByRole('button',{name:'发送讨论',exact:true}).click();
+  await expect(discussion.getByRole('alert')).toContainText('讨论暂未完成');
+  await expect(discussion.getByLabel('继续提问')).toHaveValue('测试失败');
+  await p.reload();
+  if(await p.getByRole('tab',{name:'学习助手'}).isVisible())await p.getByRole('tab',{name:'学习助手'}).click();
+  await p.getByRole('tab',{name:/我的理解/}).click();
+  await expect(discussion.getByLabel('AI 讨论回答')).toHaveCount(2);
+  await expect(discussion.getByLabel('继续提问')).toHaveValue('测试失败');
+});
 async function state(p:Page){return (await p.request.get(fixture+'/__fixture__/state')).json();}
 async function showBoard(p:Page){await p.getByRole('button',{name:'课程白板',exact:true}).click();}
 test.beforeEach(async({page:p})=>{

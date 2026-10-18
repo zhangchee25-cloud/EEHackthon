@@ -2,8 +2,9 @@ import { Button, Input, Textarea, Badge, ConfirmDialog, EmptyState, Alert } from
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, CheckCheck, ClipboardPen, Pencil, Plus, Save, X } from 'lucide-react';
 import { z } from 'zod';
-import { CardSchema, CitationSchema, editCard, type Card, type Citation } from '../domain';
+import { CardSchema, CitationSchema, editCard, type Card, type Citation, type Material } from '../domain';
 import SourceList from './SourceList';
+import CardDiscussion from './CardDiscussion';
 import { readDraft, storeDraft } from '../hooks/useStudyState';
 
 const EditorSchema = z.object({ id: z.string().nullable(), courseId: z.string().nullable().default(null), title: z.string(), body: z.string(), baseline: z.string().nullable(), sourceRefs: z.array(CitationSchema) });
@@ -17,8 +18,8 @@ export function getEditorDraft(courseId: string | null = null): EditorDraft | nu
   if(r.success&&old&&storeDraft(key,r.data))storeDraft(EDITOR_KEY,null);
   return r.success?r.data:null;
 }
-type Props = { courseId: string | null; cards: Card[]; editor: EditorDraft | null; setEditor: (e: EditorDraft | null) => void; onSave: (card: Card) => void; onReview: (id: string, value: Card['reviewStatus']) => void; onSource: (c: Citation) => void; disabled: boolean };
-export default function CardsPanel({ courseId, cards, editor, setEditor, onSave, onReview, onSource, disabled }: Props) {
+type Props = { materials: Material[]; courseId: string | null; cards: Card[]; editor: EditorDraft | null; setEditor: (e: EditorDraft | null) => void; onSave: (card: Card) => void; onReview: (id: string, value: Card['reviewStatus']) => void; onSource: (c: Citation) => void; disabled: boolean };
+export default function CardsPanel({ materials, courseId, cards, editor, setEditor, onSave, onReview, onSource, disabled }: Props) {
   const [filter, setFilter] = useState<'all' | 'to_review' | 'self_checked'>('all');
   const [storageError, setStorageError] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -55,6 +56,7 @@ export default function CardsPanel({ courseId, cards, editor, setEditor, onSave,
       {storageError && <Alert title="浏览器草稿存储不可用">请保留当前页面，提交后确认服务端保存成功。</Alert>}
       <div className="editor-actions"><Button onClick={discard}><X size={14} />放弃草稿</Button><Button variant="primary" disabled={disabled || !valid} onClick={commit}><Save size={15} />{aiOrigin ? '保存卡片' : '保存我的理解'}</Button></div>
       <p className="muted fine">保存后标记为待复习；“已自检”由你本人主动标记。</p>
+      {editor.id && <CardDiscussion key={`${courseId}:${editor.id}`} card={editor} materials={materials} onSource={onSource} disabled={disabled} />}
     </div> : <>
       <div className="cards-toolbar"><select aria-label="筛选卡片" value={filter} onChange={e => setFilter(e.target.value as typeof filter)}><option value="all">全部卡片 · {cards.length}</option><option value="to_review">待复习 · {cards.filter(c => c.reviewStatus === 'to_review').length}</option><option value="self_checked">已自检 · {cards.filter(c => c.reviewStatus === 'self_checked').length}</option></select><button ref={createButton} className="text-button" disabled={disabled} onClick={() => setEditor({ id: null, courseId, title: '', body: '', baseline: null, sourceRefs: [] })}><Plus size={14} />手写卡片</button></div>
       {filtered.length === 0 ? <EmptyState icon={<ClipboardPen size={20} />} title={cards.length ? '这个分类还没有卡片' : '留下第一张理解卡片'} action={!cards.length && <Button disabled={disabled} onClick={() => setEditor({ id: null, courseId, title: '', body: '', baseline: null, sourceRefs: [] })}><Plus size={14} />新建手写卡片</Button>}>{cards.length ? '切换分类，查看其他理解卡片。' : '从 AI 回答直接创建卡片，或手写一张卡片。'}</EmptyState> : <div className="card-list">{filtered.map(card => <article className="study-card" key={card.id}>
