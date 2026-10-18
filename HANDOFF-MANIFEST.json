@@ -171,8 +171,8 @@
   },
   {
     "path": "docs/AB-本轮集成契约.md",
-    "bytes": 9010,
-    "sha256": "beab46fc1b206456e9f762f32c3413aacac54624e29b36ee2b281da406ad1edf"
+    "bytes": 8891,
+    "sha256": "08dcb58780b6ff8b1ad2a32ecc3b618bded963183a2c8ffcba295a88ef78cb79"
   },
   {
     "path": "docs/B-验收记录.md",
@@ -451,7 +451,7 @@
   },
   {
     "path": "README.md",
-    "bytes": 7122,
-    "sha256": "6ed376449ce1af212eb870a27969abb32d4fe33debe3f4ff26dea96580d2214d"
+    "bytes": 7661,
+    "sha256": "3e055cca6e315e6933a920cedc62e940571d056041ce7a3b9bb4c92df5dffecf"
   }
 ]
