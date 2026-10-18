@@ -1,8 +1,23 @@
 [
   {
+    "path": "LICENSE-原创部分说明.md",
+    "bytes": 2932,
+    "sha256": "c3c106b1873ad9a56f74ed8a8709ddfa1605b48f34061119c3654b9309effe0b"
+  },
+  {
+    "path": "README.md",
+    "bytes": 8153,
+    "sha256": "74f38de9cfba00b119aeedd6ba4cdb9f7026521769d2fbee44ed3d3bb12b6128"
+  },
+  {
     "path": "backend/.env.example",
     "bytes": 850,
     "sha256": "f5c71e4a07233877c9989d2b3a7d7a74fc5161ee33faea9ce0eb9d7a0fff791b"
+  },
+  {
+    "path": "backend/README.md",
+    "bytes": 9592,
+    "sha256": "d0ea6d576d0d338fa6cc090dd664cbc9dab7582b0bb89c49b1ce3df9f15b8bd7"
   },
   {
     "path": "backend/__init__.py",
@@ -68,11 +83,6 @@
     "path": "backend/pdf_worker.py",
     "bytes": 1549,
     "sha256": "e57469e4b9cf983e097c55b9803d06955763c28b60e189b3826b55cf3a3efc29"
-  },
-  {
-    "path": "backend/README.md",
-    "bytes": 9592,
-    "sha256": "d0ea6d576d0d338fa6cc090dd664cbc9dab7582b0bb89c49b1ce3df9f15b8bd7"
   },
   {
     "path": "backend/requirements-dev.txt",
@@ -200,14 +210,24 @@
     "sha256": "7c4f3f0643190bde9205e3b0583906cd3b56d83bc0d850a3272ef47693b55e3d"
   },
   {
+    "path": "docs/OneTHU参考与课程知识库方案.md",
+    "bytes": 5478,
+    "sha256": "667d9c57ca0cdc2826fe3703e40ca333ea741df6b0a6f9766788cfda80e4e559"
+  },
+  {
+    "path": "docs/acceptance/capacitors-self-authored.pdf",
+    "bytes": 1762,
+    "sha256": "b69c336a72fdbbd57bcf14bf9cd585ac688a236422de0256c71451cd93d802a6"
+  },
+  {
     "path": "docs/frontend-A交付与验收.md",
     "bytes": 7287,
     "sha256": "fe6d1cf15f3d00a5079ccc7d002a7fdb13d2e779bb7e9ce2b7518fa42ace7f90"
   },
   {
-    "path": "docs/OneTHU参考与课程知识库方案.md",
-    "bytes": 5478,
-    "sha256": "667d9c57ca0cdc2826fe3703e40ca333ea741df6b0a6f9766788cfda80e4e559"
+    "path": "docs/评委复现风险与排查.md",
+    "bytes": 11619,
+    "sha256": "77c3259de9dc999d1c64892ffc420bc9a358b198bb0b4b0824f53a319ac848cd"
   },
   {
     "path": "examples/README.md",
@@ -228,6 +248,11 @@
     "path": "frontend/.gitignore",
     "bytes": 134,
     "sha256": "7871e18056b31598f2721f4bb31e45a82efe039d231a4272cac6215953b0c4bb"
+  },
+  {
+    "path": "frontend/README.md",
+    "bytes": 5265,
+    "sha256": "81bb7ff1e9332592d24bbed60ce3dc7ee6c8236a3163fa5b2944c3224cdf3d77"
   },
   {
     "path": "frontend/index.html",
@@ -255,6 +280,16 @@
     "sha256": "c04c6006262496baa4fa3a0582ad9cb4c37851524b3d5e9ab2cf49e5b33dcae8"
   },
   {
+    "path": "frontend/public/fonts/Inter-LICENSE.txt",
+    "bytes": 4477,
+    "sha256": "3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345"
+  },
+  {
+    "path": "frontend/public/fonts/README.md",
+    "bytes": 239,
+    "sha256": "bdb7db0ece720f936d7599a3d959ad4cf7a87a9bab83bd6ff34e7bb4baa1e240"
+  },
+  {
     "path": "frontend/public/fonts/inter-latin-400-normal.woff2",
     "bytes": 23664,
     "sha256": "8909904ab6c872eb994093482a88a28eca2cd95912d7b6fecd72103b0dc07edc"
@@ -268,21 +303,6 @@
     "path": "frontend/public/fonts/inter-latin-600-normal.woff2",
     "bytes": 24452,
     "sha256": "f9a06e79cd3a2a20951c0f0e28f66dd0e6d3fda73911d640a2125c8fcb78f21a"
-  },
-  {
-    "path": "frontend/public/fonts/Inter-LICENSE.txt",
-    "bytes": 4477,
-    "sha256": "3b0a5fca3d17942cde889069889dedbbbd075e9b599968c82a95f4d944e9b345"
-  },
-  {
-    "path": "frontend/public/fonts/README.md",
-    "bytes": 239,
-    "sha256": "bdb7db0ece720f936d7599a3d959ad4cf7a87a9bab83bd6ff34e7bb4baa1e240"
-  },
-  {
-    "path": "frontend/README.md",
-    "bytes": 5237,
-    "sha256": "dea4c3408e36f456d384f129bc548d765f9202a46180997bfcb47067a0fb7b3c"
   },
   {
     "path": "frontend/scripts/copy-pdf-assets.mjs",
@@ -305,14 +325,24 @@
     "sha256": "463ffd406dce7aeb6a3596da97edffa6b6a65cf738522757021fb5aa4b41d8a5"
   },
   {
+    "path": "frontend/src/App.tsx",
+    "bytes": 33631,
+    "sha256": "2cb41d6bc8850e30b9d13d3d2316e7651920d1b59ab558f863960f618edc5f13"
+  },
+  {
+    "path": "frontend/src/Site.tsx",
+    "bytes": 1144,
+    "sha256": "41af4e722e56f7272b9d3b96a73ca28a14610e9c0199b58089e6fb302c46ffa8"
+  },
+  {
     "path": "frontend/src/api.ts",
     "bytes": 7305,
     "sha256": "74a421c1a63b63a6e4204aa0e0135a335c08faf24a07c38b9b57432f7d9ccea5"
   },
   {
-    "path": "frontend/src/App.tsx",
-    "bytes": 33631,
-    "sha256": "2cb41d6bc8850e30b9d13d3d2316e7651920d1b59ab558f863960f618edc5f13"
+    "path": "frontend/src/components/BackgroundPaths.tsx",
+    "bytes": 1003,
+    "sha256": "7ea0be00120af11b0b9827de598db7e642fac72292cd106c2f98ef1a81ff3fbb"
   },
   {
     "path": "frontend/src/components/CardsPanel.tsx",
@@ -321,8 +351,8 @@
   },
   {
     "path": "frontend/src/components/LandingPage.tsx",
-    "bytes": 4042,
-    "sha256": "5b321af441aac20d88db2f215d4e67943f1947fc16351f95dabb70282d14db1c"
+    "bytes": 9343,
+    "sha256": "1cdbeb9695d9221dd16f360899ebcab237e894c09189f59be3c1833b0b96fe4b"
   },
   {
     "path": "frontend/src/components/LearnImport.tsx",
@@ -350,11 +380,6 @@
     "sha256": "2af521391b0f4fae48eed5a6025ee1106ff7985a103e167e38b4074223ab5dc8"
   },
   {
-    "path": "frontend/src/components/ui.tsx",
-    "bytes": 4899,
-    "sha256": "f39f14f79cbea03aa2f636abf90449bb8cf3aa86916b13c62066524878ed6217"
-  },
-  {
     "path": "frontend/src/components/Whiteboard.css",
     "bytes": 1453,
     "sha256": "dacf3a3be36b3ce48aa65aa3e613d1c3bcebb61af7b701ff080dfcdab9417ed4"
@@ -363,6 +388,11 @@
     "path": "frontend/src/components/Whiteboard.tsx",
     "bytes": 12235,
     "sha256": "45b9a9ac8af54f215d4598c692004f230234316c74b6bb4eaa5ba1232d96007d"
+  },
+  {
+    "path": "frontend/src/components/ui.tsx",
+    "bytes": 4899,
+    "sha256": "f39f14f79cbea03aa2f636abf90449bb8cf3aa86916b13c62066524878ed6217"
   },
   {
     "path": "frontend/src/domain.ts",
@@ -376,18 +406,13 @@
   },
   {
     "path": "frontend/src/landing.css",
-    "bytes": 5346,
-    "sha256": "1d40f0f6944ea9a99eba573beca372266ed309cf5228ee6842fe619f88911e85"
+    "bytes": 21447,
+    "sha256": "5ac36c81b97105f337ee70ef8dce79bcdbfa21a581dfc630eac5659af1e8b6de"
   },
   {
     "path": "frontend/src/main.tsx",
     "bytes": 293,
     "sha256": "eec683dc424ea732586a005f20eca91cceca8ea8f083eea74c883bac7a35d302"
-  },
-  {
-    "path": "frontend/src/Site.tsx",
-    "bytes": 1144,
-    "sha256": "41af4e722e56f7272b9d3b96a73ca28a14610e9c0199b58089e6fb302c46ffa8"
   },
   {
     "path": "frontend/src/styles.css",
@@ -475,13 +500,23 @@
     "sha256": "1ba6d2b5cb75229fd46a6b773c71d06ae1e9e55bb479def43674174b1c6c1456"
   },
   {
-    "path": "LICENSE-原创部分说明.md",
+    "path": "scripts/package-submission.py",
+    "bytes": 2908,
+    "sha256": "5340002f06519857d210955006f6dc07e7f7e97f0ac22f0e33799743c861922b"
+  },
+  {
+    "path": "允许后续开源.md",
     "bytes": 2932,
     "sha256": "c3c106b1873ad9a56f74ed8a8709ddfa1605b48f34061119c3654b9309effe0b"
   },
   {
-    "path": "README.md",
-    "bytes": 7750,
-    "sha256": "e2eb4a463de16c3049c21593b44497f4b4f2b52c5d55b989e1f9d6ee98a2e83c"
+    "path": "开源与AI使用声明.md",
+    "bytes": 65725,
+    "sha256": "415fd727472e4bc0e69f1ccd6cf80a4c6cfd03e1597891e2bf1e8d655d03e8fe"
+  },
+  {
+    "path": "队伍介绍.md",
+    "bytes": 1617,
+    "sha256": "13596ed62ab2b951d9eb0b53051f2381d3b2412c2eaee325e725e8773a5a3026"
   }
 ]

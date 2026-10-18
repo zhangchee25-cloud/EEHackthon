@@ -6,7 +6,11 @@
 
 把课程材料变成有出处、可改写、能持续复习的个人学习空间。围绕当前目标阅读材料、核对问答引用、用自己的话保存卡片，再用课程白板组织关系；目标与专注模式减少切换，改写、自检和下次目标积累个人理解。
 
-## 本次更新（AI白板版 v2）
+## 本次本地合并（首页整合版 v3）
+
+已合入 GitHub `main` 的 `ac192fc`，保留 AI 白板与直接建卡功能，并整合 Background Paths 风格首页。评委首次复现请先看 [复现风险与排查清单](docs/评委复现风险与排查.md)；新源码包由 `python3 scripts/package-submission.py` 生成，旧 ZIP 保留为历史版本。测试范围、学校登录与模型的外部依赖在清单中分别说明。
+
+## 先前更新（AI白板版 v2）
 
 AI回答可直接创建卡片，原样保存无需改写。进入课程白板可让AI生成带引用的卡片、节点和关系，预览后一次追加保存；手动连线直接点击两个节点即可。旧手动编辑流程仍可使用。AI内容默认待复习，用户可以随时修改。
 
@@ -31,7 +35,7 @@ UI自动测试使用显著标记的接口桩，其结果与真实学校／模型
 
 需要 Python 3.10+、Node.js 20.19+（20.x）或22.12+、npm及现代浏览器。首次安装须访问Python/npm包源和Playwright浏览器下载源。前端PDF worker与字体资源在安装后复制到本地，无需外部CDN。
 
-先进入提交包的 ``，创建Python环境并安装依赖。Windows PowerShell：
+先进入解压后包含 `backend/` 和 `frontend/` 的项目根目录，创建Python环境并安装依赖。Windows PowerShell：
 
 ```powershell
 # 当前目录为项目根目录
@@ -67,7 +71,7 @@ MODEL_NAME=平台实际支持的模型ID
 MODEL_API_STYLE=responses
 ```
 
-按平台可将协议改为 `chat_completions`，不要把Base URL填成 `/chat/completions`。默认文件上限5MB／20页，上下文预算45000字符。可选 `DATA_DIR`、`ALLOWED_ORIGINS`、`LEARN_BROWSER_EXECUTABLE` 见示例；配置变更后重启后端。健康接口 `http://127.0.0.1:8000/api/health` 的 `modelConfigured` 仅表示配置齐全，真实问答成功才证明模型可用。API密钥只由后端读取，绝不放浏览器环境或提交包。
+按平台可将协议改为 `chat_completions`，不要把Base URL填成 `/chat/completions`。默认文件上限100 MB、PDF页数不限，上下文预算45000字符。可选 `DATA_DIR`、`ALLOWED_ORIGINS`、`LEARN_BROWSER_EXECUTABLE` 见示例；配置变更后重启后端。健康接口 `http://127.0.0.1:8000/api/health` 的 `modelConfigured` 仅表示配置齐全，真实问答成功才证明模型可用。API密钥只由后端读取，绝不放浏览器环境或提交包。
 
 新开终端，进入 `frontend/`：
 
