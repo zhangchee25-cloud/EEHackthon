@@ -1,13 +1,14 @@
+import { Button, Input, EmptyState, ErrorState, LoadingState } from './ui';
 import { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, FileText, LoaderCircle, Minus, Plus, RotateCw, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, FileText, Minus, Plus, Sparkles } from 'lucide-react';
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { api } from '../api';
 import type { Position } from '../domain';
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-type Props = { position: Position | null; title: string; onPage: (page: number) => void; onLoaded: (id: string, count: number, title: string) => void; onAsk: () => void; askDisabled: boolean };
-export default function PdfReader({ position, title, onPage, onLoaded, onAsk, askDisabled }: Props) {
+type Props = { onUpload: () => void; uploadDisabled: boolean; position: Position | null; title: string; onPage: (page: number) => void; onLoaded: (id: string, count: number, title: string) => void; onAsk: () => void; askDisabled: boolean };
+export default function PdfReader({ onUpload, uploadDisabled, position, title, onPage, onLoaded, onAsk, askDisabled }: Props) {
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,13 +70,13 @@ export default function PdfReader({ position, title, onPage, onLoaded, onAsk, as
     <div className="reader-top"><div className="reader-file"><FileText size={17} /><span>{title || '课程材料'}</span></div>
       <div className="reader-top-actions"><button className="ask-ai-button" disabled={askDisabled} onClick={onAsk}><Sparkles size={13} />Ask AI</button>{id && <a className="icon-button" href={api.fileUrl(id, page)} target="_blank" rel="noreferrer" title={`打开原 PDF 第 ${page} 页`} aria-label={`打开原 PDF 第 ${page} 页`}><ExternalLink size={16} /></a>}</div>
     </div>
-    <div className={`paper-area ${!id ? 'empty-paper' : ''}`} ref={host}>
-      {!id ? <div className="reader-empty"><div className="empty-book"><FileText size={40} strokeWidth={1.2} /></div><span className="eyebrow">COURSE MATERIAL</span><h2>从一份课程材料开始</h2><p>将 PDF 拖到左侧，或点击添加材料。<br />阅读原文，与 AI 对话，再留下你的理解。</p><div className="reading-steps"><span>01 读材料</span><i /><span>02 问难点</span><i /><span>03 留下理解</span></div></div> : <>
-        {(loading || rendering) && <div className="pdf-loading" role="status"><LoaderCircle size={16} className="spin" />{loading ? '正在读取原 PDF…' : '正在定位页面…'}</div>}
-        {error && <div className="pdf-error" role="alert"><p>{error}</p><button className="button secondary" onClick={() => setRetry(n => n + 1)}><RotateCw size={14} />重试读取</button><a href={api.fileUrl(id, page)} target="_blank" rel="noreferrer">打开原 PDF 第 {page} 页 ↗</a></div>}
+    <div className={`paper-area ${!id ? 'empty-paper' : ''}`} ref={host} tabIndex={0} role="region" aria-label="PDF 页面内容">
+      {!id ? <EmptyState className="reader-empty" icon={<FileText size={20} />} title="添加课程材料" action={<Button variant="primary" disabled={uploadDisabled} onClick={onUpload}><Plus size={14} />上传 PDF</Button>}>上传一份文本 PDF，在这里阅读原文、核对引用。{uploadDisabled && <span className="empty-disabled-hint">请先连接学习服务，或完成顶部的草稿恢复选择。</span>}</EmptyState> : <>
+        {(loading || rendering) && <div className="pdf-loading"><LoadingState>{loading ? '正在读取原 PDF…' : '正在定位页面…'}</LoadingState></div>}
+        {error && <ErrorState title="原 PDF 未能显示" onRetry={() => setRetry(n => n + 1)}>{error}<a className="pdf-fallback" href={api.fileUrl(id, page)} target="_blank" rel="noreferrer">打开原 PDF 第 {page} 页 ↗</a></ErrorState>}
         <div className="canvas-host" ref={canvasHost} />
       </>}
     </div>
-    <div className="reader-bottom"><div className="page-navigation"><button className="icon-button" aria-label="上一页" disabled={!pdf || page <= 1} onClick={() => onPage(page - 1)}><ChevronLeft size={17} /></button><label><span className="sr-only">文件页序</span><input aria-label="文件页序" type="number" min="1" max={pdf?.numPages || 1} value={page} disabled={!pdf} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n > 0 && n <= (pdf?.numPages || 0)) onPage(n); }} /><span>/ {pdf?.numPages || '—'}</span></label><button className="icon-button" aria-label="下一页" disabled={!pdf || page >= pdf.numPages} onClick={() => onPage(page + 1)}><ChevronRight size={17} /></button></div><span className="page-caption">文件页序</span><div className="zoom-controls"><button className="icon-button" aria-label="缩小" disabled={!pdf || zoom <= .6} onClick={() => setZoom(z => Math.max(.6, z - .1))}><Minus size={15} /></button><span>{Math.round(zoom * 100)}%</span><button className="icon-button" aria-label="放大" disabled={!pdf || zoom >= 1.8} onClick={() => setZoom(z => Math.min(1.8, z + .1))}><Plus size={15} /></button></div></div>
+    <div className="reader-bottom"><div className="page-navigation"><button className="icon-button" aria-label="上一页" disabled={!pdf || page <= 1} onClick={() => onPage(page - 1)}><ChevronLeft size={17} /></button><label><span className="sr-only">文件页序</span><Input aria-label="文件页序" type="number" min="1" max={pdf?.numPages || 1} value={page} disabled={!pdf} onChange={e => { const n = Number(e.target.value); if (Number.isInteger(n) && n > 0 && n <= (pdf?.numPages || 0)) onPage(n); }} /><span>/ {pdf?.numPages || '—'}</span></label><button className="icon-button" aria-label="下一页" disabled={!pdf || page >= pdf.numPages} onClick={() => onPage(page + 1)}><ChevronRight size={17} /></button></div><span className="page-caption">文件页序</span><div className="zoom-controls"><button className="icon-button" aria-label="缩小" disabled={!pdf || zoom <= .6} onClick={() => setZoom(z => Math.max(.6, z - .1))}><Minus size={15} /></button><span>{Math.round(zoom * 100)}%</span><button className="icon-button" aria-label="放大" disabled={!pdf || zoom >= 1.8} onClick={() => setZoom(z => Math.min(1.8, z + .1))}><Plus size={15} /></button></div></div>
   </section>;
 }

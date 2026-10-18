@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api } from '../src/api';
+import { api, ApiError } from '../src/api';
 import { initialState } from '../src/domain';
 const respond = (data: unknown, status = 200) => vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status })));
 afterEach(() => vi.unstubAllGlobals());
@@ -23,4 +23,18 @@ describe('backend failure handling', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>bad gateway</html>', { status: 502 })));
     await expect(api.getState()).rejects.toThrow('服务未返回 JSON');
   });
+  it('keeps JSON HTTP 500 visible and allows a subsequent real retry', async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: '模型不可用' }), { status: 500 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(initialState), { status: 200 }));
+    vi.stubGlobal('fetch', fetch);
+    const error = await api.getState().catch(e => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.status).toBe(500);
+    expect(error.message).toContain('模型不可用');
+    expect(error.message).toContain('HTTP 500');
+    await expect(api.getState()).resolves.toEqual(initialState);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
 });

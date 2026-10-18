@@ -14,6 +14,7 @@ export default function Site() {
       else if (next === '#home' || !next) window.scrollTo(0, 0);
       else if (next === '#how-it-works') requestAnimationFrame(() => document.getElementById('how-it-works')?.scrollIntoView());
     };
+    if (window.location.hash === '#how-it-works') navigate();
     window.addEventListener('hashchange', navigate);
     return () => window.removeEventListener('hashchange', navigate);
   }, []);

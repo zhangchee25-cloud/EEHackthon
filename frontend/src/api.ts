@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { AnswerSchema, MaterialSchema, StateSchema, type StudyState } from './domain';
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message: string, readonly status?: number) { super(message); this.name = 'ApiError'; }
+}
 async function request(path: string, init: RequestInit = {}, timeout = 20000): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
@@ -9,11 +11,11 @@ async function request(path: string, init: RequestInit = {}, timeout = 20000): P
     const res = await fetch(`/api${path}`, { ...init, signal: controller.signal });
     const raw = await res.text();
     let data: unknown;
-    try { data = JSON.parse(raw); } catch { throw new ApiError(`服务未返回 JSON（HTTP ${res.status}），请检查后端与 /api 代理。`); }
+    try { data = JSON.parse(raw); } catch { throw new ApiError(`服务未返回 JSON（HTTP ${res.status}），请检查后端与 /api 代理。`, res.status); }
     if (!res.ok) {
       const body = data as Record<string, unknown> | null;
       const detail = body && (body.error || body.detail || body.message);
-      throw new ApiError(typeof detail === 'string' ? detail : `请求失败（HTTP ${res.status}），请稍后重试。`);
+      throw new ApiError(typeof detail === 'string' ? `${detail}（HTTP ${res.status}）` : `请求失败（HTTP ${res.status}），请稍后重试。`, res.status);
     }
     return data;
   } catch (error) {

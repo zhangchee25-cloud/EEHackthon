@@ -1,9 +1,11 @@
+import { Button, Input, Textarea, Toast, Tooltip, Alert, Badge, ConfirmDialog, Skeleton } from './components/ui';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowRight, ArrowUp, ArrowUpRight, BookOpen, Check, ChevronRight, CircleHelp, FileText, Focus, Layers, Leaf, LoaderCircle, MessageSquare, PanelLeftClose, Plus, RotateCw, Sparkles, Target, Upload, X, PanelLeft, HelpCircle } from 'lucide-react';
+import { ArrowDownToLine, ArrowRight, ArrowUp, ArrowUpRight, BookOpen, Check, ChevronRight, FileText, Focus, LoaderCircle, MessageSquare, Plus, RotateCw, Sparkles, Target, X, PanelLeft, HelpCircle } from 'lucide-react';
 import { api } from './api';
 import { pageLabel, toMarkdown, type Answer, type Card, type Citation, type Material, type Position } from './domain';
 import { readDraft, storeDraft, useStudyState } from './hooks/useStudyState';
 import PdfReader from './components/PdfReader';
+import MaterialLibrary from './components/MaterialLibrary';
 import StudyTabs from './components/StudyTabs';
 import SourceList from './components/SourceList';
 import CardsPanel, { getEditorDraft, type EditorDraft } from './components/CardsPanel';
@@ -14,6 +16,9 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   const [fixture, setFixture] = useState(false);
   const [health, setHealth] = useState<'checking' | 'online' | 'offline'>('checking');
   const [material, setMaterial] = useState<Material | null>(null);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [uploadName, setUploadName] = useState('');
+  const materialPages = useRef<Record<string, number>>({});
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [tab, setTab] = useState<'ask' | 'cards'>('ask');
@@ -33,7 +38,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   const [oldView, setOldView] = useState<(Position & { title: string }) | null>(null);
   const [editor, setEditor] = useState<EditorDraft | null>(getEditorDraft);
   const [toast, setToast] = useState('');
-  const [dragging, setDragging] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const questionInput = useRef<HTMLTextAreaElement>(null);
   const locked = !study.ready || !!study.recovery;
@@ -53,18 +58,27 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   useEffect(() => { if (!toast) return; const timer = setTimeout(() => setToast(''), 4500); return () => clearTimeout(timer); }, [toast]);
   const upload = async (file?: File) => {
     if (!file || locked || uploading || asking) return;
-    setUploadError('');
+    setUploadError(''); setUploadName(file.name);
     if (!file.name.toLowerCase().endsWith('.pdf')) { setUploadError('请选择 PDF 文件。扫描件 OCR 暂不支持，请使用含可选中文字的 PDF。'); return; }
     if (file.size === 0 || file.size > 20 * 1024 * 1024) { setUploadError('请选择非空且不超过 20 MB 的文本 PDF。'); return; }
     setUploading(true);
     try {
       const next = await api.upload(file);
       if (next.status !== 'ready') throw new Error(next.error || (next.status === 'processing' ? '材料仍在处理中。当前接口要求同步解析，请联系 B 确认处理结果后重新上传。' : '文字提取失败，请换一份文本 PDF。'));
+      if (study.state.readingPosition) materialPages.current[`${study.state.readingPosition.materialId}:${study.state.readingPosition.versionId}`] = study.state.readingPosition.page;
+      setMaterials(items => { const known = current && !items.some(m => m.materialId === current.materialId && m.versionId === current.versionId) ? [...items, current] : items; return [...known.filter(m => m.materialId !== next.materialId || m.versionId !== next.versionId), next]; });
       setMaterial(next); setOldView(null); setAnswer(null); setCitation(null); setAskError('');
       study.update(s => ({ ...s, readingPosition: { materialId: next.materialId, versionId: next.versionId, page: 1 } }), true);
       setHealth('online'); setToast('材料已就绪，可以开始阅读与提问。');
     } catch (e) { setUploadError(e instanceof Error ? e.message : '上传失败，原材料仍可继续阅读。'); }
     finally { setUploading(false); if (input.current) input.current.value = ''; }
+  };
+  const knownMaterials = current && !materials.some(m => m.materialId === current.materialId && m.versionId === current.versionId) ? [current, ...materials] : materials;
+  const selectMaterial = (next: Material) => {
+    if (locked || uploading || asking) return;
+    if (study.state.readingPosition) materialPages.current[`${study.state.readingPosition.materialId}:${study.state.readingPosition.versionId}`] = study.state.readingPosition.page;
+    setMaterial(next); setOldView(null); setAnswer(null); setCitation(null); setAskError(''); setMobileView('reader');
+    study.update(s => ({ ...s, readingPosition: { materialId: next.materialId, versionId: next.versionId, page: materialPages.current[`${next.materialId}:${next.versionId}`] || 1 } }), true);
   };
   const ask = async () => {
     if (!current || !question.trim() || asking || uploading || locked) return;
@@ -80,13 +94,14 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   const openCitation = (c: Citation) => {
     if (locked) return;
     setCitation(c); setMobileView('reader');
+    requestAnimationFrame(() => document.getElementById('reader-view')?.focus({ preventScroll: true }));
     if (c.materialId === current?.materialId && c.versionId === current.versionId) {
       setOldView(null); study.update(s => ({ ...s, readingPosition: { materialId: c.materialId, versionId: c.versionId, page: c.pageStart } }));
     } else setOldView({ materialId: c.materialId, versionId: c.versionId, page: c.pageStart, title: c.title });
   };
-  const createFromAnswer = () => {
+  const createFromAnswer = (confirmed = false) => {
     if (!answer || !answer.answerSegments.length) return;
-    if (editor && !window.confirm('替换当前尚未提交的卡片草稿？')) { setTab('cards'); return; }
+    if (editor && !confirmed) { setConfirmReplace(true); return; }
     const body = answer.answerSegments.map(s => s.text).join('\n\n');
     const used = new Set(answer.answerSegments.flatMap(s => s.citationIds));
     setChatOpen(true); setMobileView('assistant'); setEditor({ id: null, title: answeredQuestion.slice(0, 120), body, baseline: body, sourceRefs: answer.citations.filter(c => used.has(c.id)) }); setTab('cards');
@@ -110,54 +125,45 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   const usedCitations = answer?.citations.filter(c => answer.answerSegments.some(s => s.citationIds.includes(c.id))) || [];
 
   return <div className={`app ${focus ? 'focused' : ''} ${!chatOpen ? 'chat-closed' : ''} ${materialsOpen ? 'materials-open' : ''}`} data-mobile-view={mobileView}>
+    <a className="skip-link" href="#study" onClick={e => { e.preventDefault(); setMobileView('reader'); requestAnimationFrame(() => document.getElementById('reader-view')?.focus()); }}>跳到学习内容</a>
     <header className="app-header">
-      <a className="brand" href="#home" aria-label="知页首页"><span className="brand-mark"><BookOpen size={23} strokeWidth={1.7} /></span><span>知页<span className="brand-en">个人学习空间</span></span></a>
-      <div className="workspace-title"><h1>我的学习空间</h1><span className="local-badge"><span className="dot" />本机演示</span></div>
+      <a className="brand" href="#home" aria-label="知页首页"><span className="brand-mark"><BookOpen size={19} strokeWidth={1.7} /></span><span>知页</span></a>
+      <nav className="workspace-breadcrumb" aria-label="面包屑"><span>/</span><h1>学习空间</h1><span>/</span><span className="breadcrumb-material" title={current?.title}>{current?.title || '未添加材料'}</span></nav>
       <div className="header-actions">
-        <button className={`save-indicator ${study.saveStatus}`} onClick={study.flush} disabled={locked} title="目标、阅读位置与卡片统一保存；点击立即保存或重试">
-          {study.saveStatus === 'saving' ? <LoaderCircle size={14} className="spin" /> : study.saveStatus === 'error' ? <RotateCw size={14} /> : <Check size={14} />}{statusText}
-        </button>
-        <button className="button secondary export-button" onClick={exportCards} disabled={locked || !study.state.cards.length}><ArrowDownToLine size={16} /><span>导出笔记</span></button>
-        <button className="icon-button help-button" aria-label="查看学习流程" aria-expanded={showGuide} onClick={() => setShowGuide(v => !v)}><HelpCircle size={19} /></button>
+        <button className={`save-indicator ${study.saveStatus}`} onClick={study.flush} disabled={locked} aria-label={`学习状态：${statusText}，点击保存或重试`}><span className="dot" />{statusText}</button>
+        <Button className="export-button" aria-label="导出 Markdown" onClick={exportCards} disabled={locked || !study.state.cards.length}><ArrowDownToLine size={14} /><span>导出 Markdown</span></Button>
+        <Tooltip label="查看学习流程"><button className="icon-button help-button" aria-label="查看学习流程" aria-expanded={showGuide} onClick={() => setShowGuide(v => !v)}><HelpCircle size={17} /></button></Tooltip>
       </div>
     </header>
     <main className="workspace">
-      {fixture && <div className="fixture-banner" role="status">接口测试桩 · 用于前端验收，不含真实模型、PDF 解析或服务重启持久化。</div>}
-      {!study.ready && <div className={`connection-banner ${study.loadError ? 'error-banner' : ''}`} role={study.loadError ? 'alert' : 'status'}>
-        <div>{study.loadError ? <><strong>尚未连接学习服务</strong><span>{study.loadError} 接通前不会写入空白状态。</span></> : <><LoaderCircle className="spin" size={16} />正在读取已保存的学习状态…</>}</div>
-        {study.loadError && <button className="button secondary" onClick={() => { void study.reload(); checkHealth(); }}><RotateCw size={14} />重新连接</button>}
-      </div>}
-      {study.recovery && <div className="connection-banner" role="status"><div><strong>发现上次未保存的学习修改</strong><span>服务端数据已读取。恢复本机草稿，或继续使用服务端版本。</span></div><div className="inline-actions"><button className="button secondary" onClick={study.discardRecovery}>使用服务端版本</button><button className="button primary" onClick={study.restore}>恢复并保存草稿</button></div></div>}
-      {study.saveError && <div className="connection-banner error-banner" role="alert"><div><strong>保存尚未成功</strong><span>{study.saveError}</span></div><button className="button secondary" onClick={study.flush}><RotateCw size={14} />重试保存</button></div>}
-      {study.draftWarning && <p className="error-text" role="alert">浏览器草稿存储不可用；请等待服务端保存成功后再关闭页面。</p>}
-      {showGuide && <section className="study-guide" aria-label="学习流程指引"><div className="guide-heading"><strong>跟着做，留下第一张理解卡片</strong><button className="icon-button" aria-label="关闭学习指引" onClick={() => setShowGuide(false)}><X size={16} /></button></div><ol>{guideSteps.map((step, i) => <li key={step} aria-current={guideStep === i ? 'step' : undefined} className={guideStep > i ? 'done' : ''}><span>{guideStep > i ? <Check size={13} /> : i + 1}</span>{step}</li>)}</ol><p>{!study.ready ? '先连接本机学习服务，再填写目标并上传 PDF。' : guideStep === 0 ? '在下方写下这次想弄懂的一个问题。' : guideStep === 1 ? '从材料栏上传一份文本 PDF；窄屏可点击“材料”展开。' : guideStep === 2 ? '打开学习助手，向当前讲义提问，再点击回答中的引用核对原文。' : guideStep === 3 ? '点击“新建理解卡片”，亲手改写正文后保存。' : '卡片已留下。可以标记自检、填写下次目标，或导出笔记。'}</p></section>}
-      <section className="goal-bar"><span className="goal-icon"><Target size={20} /></span><label htmlFor="goal">本次学习目标</label><input id="goal" value={study.state.goal} disabled={locked} onChange={e => study.update(s => ({ ...s, goal: e.target.value }))} onBlur={study.flush} maxLength={1000} placeholder="今天，你想弄懂什么？" /><span className="goal-note">一次，专注一个问题</span></section>
+      <div className="workspace-notices">
+        {fixture && <div className="fixture-banner" role="status">接口测试桩 · 不含真实模型、PDF 解析或服务重启持久化。</div>}
+        {!study.ready && (study.loadError ? <Alert title="学习服务未连接" action={<Button onClick={() => { void study.reload(); checkHealth(); }}><RotateCw size={14} />重新连接</Button>}>{study.loadError} 接通前不会写入空白状态。</Alert> : <div className="loading-state" role="status"><LoaderCircle className="spin" size={16} />正在读取学习状态…</div>)}
+        {study.recovery && <Alert title="发现未保存的本机修改" tone="warning" action={<><Button onClick={study.discardRecovery}>使用服务端版本</Button><Button variant="primary" onClick={study.restore}>恢复并保存草稿</Button></>}>请选择恢复本机草稿，或继续使用服务端版本。</Alert>}
+        {study.saveError && <Alert title="保存未成功 · 草稿已保留" action={<Button onClick={study.flush}><RotateCw size={14} />重试保存</Button>}>{study.saveError}</Alert>}
+        {study.draftWarning && <Alert title="浏览器草稿存储不可用">请等待服务端保存成功后再关闭页面。</Alert>}
+      </div>
+      <section className="goal-bar"><Target size={15} /><label htmlFor="goal">本次目标</label><Input id="goal" value={study.state.goal} disabled={locked} onChange={e => study.update(s => ({ ...s, goal: e.target.value }))} onBlur={study.flush} maxLength={1000} placeholder="这次想弄懂什么？" /><span className="goal-note">一次专注一个问题</span></section>
+      {showGuide && <section className="study-guide" aria-label="学习流程指引"><div className="guide-heading"><strong>学习流程</strong><button className="icon-button" aria-label="关闭学习指引" onClick={() => setShowGuide(false)}><X size={16} /></button></div><ol>{guideSteps.map((step, i) => <li key={step} aria-current={guideStep === i ? 'step' : undefined} className={guideStep > i ? 'done' : ''}><span>{guideStep > i ? <Check size={12} /> : i + 1}</span>{step}</li>)}</ol><p>{!study.ready ? '先连接学习服务，再设定目标并上传 PDF。' : guideStep === 0 ? '写下这次想弄懂的问题。' : guideStep === 1 ? '上传一份含可选中文字的 PDF。' : guideStep === 2 ? '向材料提问，再点击引用核对原文。' : guideStep === 3 ? '从回答创建卡片，改写正文后保存。' : '理解已保存。可以自检、记录下次目标或导出。'}</p></section>}
       <div className="workspace-controls">
-        <button className="button secondary materials-toggle" aria-expanded={materialsOpen} aria-controls="materials-panel" onClick={() => { setMaterialsOpen(v => !v); setFocus(false); }}><PanelLeft size={16} />材料{current && <span className="count">1</span>}</button>
-        <span className="workspace-caption"><BookOpen size={16} />课程学习<span className="caption-divider">/</span>{current?.title || '从一份讲义开始'}</span>
-        <div className="workspace-control-actions"><button className={`button quiet focus-button ${focus ? 'active' : ''}`} onClick={() => { setFocus(v => !v); setMaterialsOpen(false); }}><Focus size={16} />{focus ? '退出专注' : '专注阅读'}</button><button className={`button secondary chat-toggle ${chatOpen ? 'active' : ''}`} onClick={() => setChatOpen(v => !v)} aria-expanded={chatOpen} aria-controls="assistant-view"><MessageSquare size={16} />学习助手</button></div>
+        <Button className="materials-toggle" aria-expanded={materialsOpen} aria-controls="materials-panel" onClick={() => { setMaterialsOpen(v => !v); setFocus(false); }}><PanelLeft size={15} />材料<span className="count">{knownMaterials.length}</span></Button>
+        <span className="workspace-caption">课程学习<ChevronRight size={12} />{oldView ? '核对历史来源' : '阅读与理解'}</span>
+        <div className="workspace-control-actions"><Button variant="quiet" className={`focus-button ${focus ? 'active' : ''}`} aria-pressed={focus} onClick={() => { setFocus(v => !v); setMaterialsOpen(false); }}><Focus size={15} />{focus ? '退出专注' : '专注阅读'}</Button><Button variant="quiet" className="chat-toggle" onClick={() => setChatOpen(v => !v)} aria-expanded={chatOpen} aria-controls="assistant-view"><MessageSquare size={15} />学习助手</Button></div>
       </div>
       <StudyTabs className="mobile-view-tabs" label="工作区视图" value={mobileView} onChange={value => { setMobileView(value); if (value === 'assistant') setChatOpen(true); }} items={[
         { value: 'reader', id: 'reader-view-tab', panelId: 'reader-view', label: <><BookOpen size={16} />阅读材料</> },
         { value: 'assistant', id: 'assistant-view-tab', panelId: 'assistant-view', label: <><MessageSquare size={16} />学习助手{editor && <span className="draft-dot" title="有编辑草稿" />}</> },
       ]} />
       <div className="learning-grid">
-        <aside className="material-sidebar" id="materials-panel" aria-label="课程材料与下次目标">
-          <div className="section-heading"><h2><Layers size={16} />材料库</h2><span className="count">{current ? '1 份' : '0 份'}</span></div>
-          <div className={`upload-zone ${dragging ? 'dragging' : ''}`} onDragOver={e => { e.preventDefault(); if (!locked && !asking) setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={e => { e.preventDefault(); setDragging(false); void upload(e.dataTransfer.files[0]); }}>
-            <button disabled={locked || uploading || asking} onClick={() => input.current?.click()}>{uploading ? <LoaderCircle size={25} className="spin" /> : <Upload size={25} strokeWidth={1.5} />}<strong>{uploading ? '正在处理材料' : current ? '上传另一份材料' : '添加课程材料'}</strong><span>{uploading ? '解析完成后才能提问' : '选择文件，或拖放到这里'}</span><small>文本 PDF · 最大 20 MB</small></button>
-            <input ref={input} type="file" accept=".pdf,application/pdf" aria-label="上传课程 PDF" className="sr-only" disabled={locked || uploading || asking} onChange={e => void upload(e.target.files?.[0])} />
-          </div>
-          {uploadError && <p className="error-text upload-error" role="alert">{uploadError}</p>}
-          {current ? <div className="material-item"><div className="pdf-icon"><FileText size={18} /></div><div><strong>{current.title}</strong><p>{current.pageCount ? `${current.pageCount} 页` : '读取页数中'}<span>·</span><span className="ready-text"><Check size={12} />已就绪</span></p></div><button className="material-ask" aria-label="向当前材料提问" title="向当前材料提问" onClick={() => showAssistant()} disabled={locked}><Sparkles size={16} /></button></div> : <p className="no-material">从一份讲义开始，<br />把疑问留给阅读。</p>}
-          <div className="scope-note"><CircleHelp size={14} /><p>问答围绕当前材料展开。<br />新文件不会覆盖旧卡片的出处。</p></div>
-          <div className="sidebar-bottom"><div className="progress-title"><Leaf size={16} /><span>一点点，留下理解</span></div><div className="study-stats"><div><strong>{study.state.cards.length.toString().padStart(2, '0')}</strong><span>我的理解</span></div><div><strong>{reviewCount.toString().padStart(2, '0')}</strong><span>待复习</span></div></div><div className="next-step"><label htmlFor="next-step">下次从哪里继续<ArrowRight size={14} /></label><textarea id="next-step" rows={3} maxLength={2000} disabled={locked} value={study.state.nextStep} onChange={e => study.update(s => ({ ...s, nextStep: e.target.value }))} onBlur={study.flush} placeholder="为下次学习，留一个起点…" /></div></div>
+        <aside className="material-sidebar panel" id="materials-panel" aria-label="课程材料与下次目标">
+          <MaterialLibrary materials={knownMaterials} current={current} disabled={locked || uploading || asking} uploading={uploading} uploadName={uploadName} error={uploadError} onUpload={() => input.current?.click()} onDrop={file => void upload(file)} onSelect={selectMaterial} />
+          <div className="sidebar-bottom"><div className="study-stats"><span>我的理解 <strong>{study.state.cards.length}</strong></span><span>待复习 <strong>{reviewCount}</strong></span></div><div className="next-step"><label htmlFor="next-step">下次继续</label><Textarea id="next-step" rows={3} maxLength={2000} disabled={locked} value={study.state.nextStep} onChange={e => study.update(s => ({ ...s, nextStep: e.target.value }))} onBlur={study.flush} placeholder="记下下次的起点…" /></div></div>
         </aside>
         <div className="reader-column" id="reader-view" role="tabpanel" aria-labelledby="reader-view-tab" tabIndex={0}>
           {oldView && <div className="old-source-bar"><span>正在核对历史来源 · 版本 {oldView.versionId}</span><button className="text-button" onClick={() => { setOldView(null); setCitation(null); }}>返回当前材料</button></div>}
-          <PdfReader position={position} title={title} onAsk={() => showAssistant()} askDisabled={!readyMaterial || locked} onPage={page => { if (locked) return; if (oldView) setOldView({ ...oldView, page }); else study.update(s => s.readingPosition ? { ...s, readingPosition: { ...s.readingPosition, page } } : s); }} onLoaded={(id, count, filename) => { if (id !== current?.materialId) return; setMaterial(m => ({ materialId: current.materialId, versionId: current.versionId, status: 'ready', title: m?.title || filename || current.title, pageCount: count })); }} />
+          <PdfReader onUpload={() => input.current?.click()} uploadDisabled={locked || uploading || asking} position={position} title={title} onAsk={() => showAssistant()} askDisabled={!readyMaterial || locked} onPage={page => { if (locked) return; if (oldView) setOldView({ ...oldView, page }); else study.update(s => s.readingPosition ? { ...s, readingPosition: { ...s.readingPosition, page } } : s); }} onLoaded={(id, count, filename) => { if (id !== current?.materialId) return; setMaterials(items => items.map(item => item.materialId === id ? { ...item, pageCount: count, title: filename || item.title } : item)); setMaterial(m => ({ materialId: current.materialId, versionId: current.versionId, status: 'ready', title: m?.title || filename || current.title, pageCount: count })); }} />
           {citation && <section className="citation-detail" aria-label="引用原文"><div className="citation-heading"><span><QuoteIcon /><strong>{citation.title}</strong> · 文件{pageLabel(citation)}</span><button className="icon-button" aria-label="关闭引用摘录" onClick={() => setCitation(null)}><X size={16} /></button></div><blockquote>{citation.quote}</blockquote><div className="citation-bottom"><details><summary>来源版本</summary><span>材料 {citation.materialId} · 版本 {citation.versionId}</span></details><a href={api.fileUrl(citation.materialId, citation.pageStart)} target="_blank" rel="noreferrer">打开原 PDF 第 {citation.pageStart} 页<ArrowUpRight size={14} /></a></div></section>}
-          <div className="reader-footnote">{oldView ? '正在阅读历史来源；提问范围仍为当前材料。' : current ? '读原文，核对出处，再留下自己的理解。' : '材料保存在本机服务，等待你继续阅读。'}</div>
+          <div className="reader-footnote">{oldView ? '历史来源 · 提问仍基于当前材料' : current ? '文件页序与原 PDF 一致' : '上传后可阅读原文并定位引用'}</div>
         </div>
         <aside className="tools-panel panel" id="assistant-view" role="tabpanel" aria-labelledby="assistant-view-tab" tabIndex={0}>
           <StudyTabs label="学习工具" value={tab} onChange={setTab} items={[
@@ -165,20 +171,21 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
             { value: 'cards', id: 'cards-tab', panelId: 'cards-panel', label: <><BookOpen size={16} />我的理解<span className="tab-count">{study.state.cards.length}</span>{editor && <span className="draft-dot" title="有编辑草稿" />}</> },
           ]} />
           <div hidden={tab !== 'ask'} role="tabpanel" id="ask-panel" aria-labelledby="ask-tab" className="ask-panel" tabIndex={0}>
-            <div className="ask-scroll"><div className="assistant-intro"><span className="assistant-mark"><Sparkles size={19} /></span><div><h2>带着问题，读得更深</h2><p>根据当前材料回答，每个引用都可回到原文。</p></div></div>
+            <div className="ask-scroll"><div className="assistant-intro"><span className="assistant-mark"><Sparkles size={19} /></span><div><h2>AI 学习助手</h2><p>仅依据当前材料回答，引用可定位原文。</p></div></div>
               {!answer && !asking && !askError && <div className="ask-empty"><span className="mini-label">从一个好问题开始</span>{['这个概念的核心是什么？', '这一步推导为什么成立？', '材料里的例子说明了什么？'].map(q => <button key={q} disabled={!readyMaterial || locked} onClick={() => { setQuestion(q); questionInput.current?.focus(); }}><span>{q}</span><ArrowUpRight size={15} /></button>)}<div className="grounding-note"><BookOpen size={18} /><p>回答是起点，原文是依据。<br />材料未涵盖的内容，会明确说明。</p></div></div>}
-              {asking && <div className="answer-loading" role="status"><LoaderCircle size={21} className="spin" /><strong>正在阅读材料，组织回答…</strong><p>请求期间，你可以继续阅读原文。</p></div>}
-              {askError && <div className="ask-error" role="alert"><strong>这次提问未完成</strong><p>{askError}</p><span>问题仍保留在下方，可修改后重试。</span></div>}
-              {answer && <div className="answer"><div className="question-bubble">{answeredQuestion}</div><div className="answer-label"><Sparkles size={15} /><strong>AI 草稿</strong><span>请核对出处</span></div>
+              {asking && <div className="answer-loading" role="status"><LoaderCircle size={16} className="spin" /><strong>正在根据材料组织回答…</strong><p>可以继续阅读原文，完成后会在这里显示。</p><Skeleton /><Skeleton className="skeleton-short" /></div>}
+              {askError && <Alert title="提问未完成" className="ask-error" action={<Button disabled={locked || !readyMaterial || !question.trim() || uploading || asking} onClick={() => void ask()}><RotateCw size={14} />重试</Button>}>{askError}<p>问题已保留，可修改后重试。</p></Alert>}
+              {answer && <div className="answer"><div className="question-bubble">{answeredQuestion}</div><div className="answer-label"><Badge tone="warning">AI 草稿</Badge><span>请核对出处后改写</span></div>
                 {answer.answerSegments.map(segment => <div className="answer-segment" key={segment.id}><p>{segment.text}</p><div className="inline-citations">{segment.citationIds.map(id => { const c = answer.citations.find(c => c.id === id)!; const number = usedCitations.findIndex(item => item.id === id) + 1; return <button key={id} onClick={() => openCitation(c)} aria-label={`引用 ${number}，${c.title}，${pageLabel(c)}`}><span>{number}</span>{pageLabel(c)}<ArrowUpRight size={12} /></button>; })}</div></div>)}
+                {!answer.answerSegments.length && <div className="answer-empty" role="status">当前材料未提供可用回答。可换个问题，或上传包含相关内容的材料。</div>}
                 <SourceList refs={usedCitations} onOpen={openCitation} label="核对回答来源" showQuotes />
-                {answer.limitations.length > 0 && <div className="limitations"><strong>材料范围与不足</strong>{answer.limitations.map((text, i) => <p key={i}>{text}</p>)}</div>}
-                <button className="button secondary new-card-action" disabled={locked || !answer.answerSegments.length} onClick={createFromAnswer}><Plus size={16} />新建理解卡片<ArrowRight size={15} /></button>
+                {answer.limitations.length > 0 && <Alert className="limitations" title="材料范围与不足" tone="warning">{answer.limitations.map((text, i) => <p key={i}>{text}</p>)}</Alert>}
+                <button className="button secondary new-card-action" disabled={locked || !answer.answerSegments.length} onClick={() => createFromAnswer()}><Plus size={16} />新建理解卡片<ArrowRight size={15} /></button>
               </div>}
             </div>
             <form className="question-composer" onSubmit={e => { e.preventDefault(); void ask(); }}>
               <div className="chat-context"><FileText size={14} /><span title={current?.title}>{current?.title || '尚未添加材料'}</span><small>{current ? current.pageCount ? `全部 ${current.pageCount} 页` : '全部页面' : 'PDF'}</small></div>
-              <label htmlFor="question" className="sr-only">向材料提问</label><textarea id="question" ref={questionInput} value={question} maxLength={4000} disabled={!readyMaterial || locked || uploading} onChange={e => setQuestion(e.target.value)} placeholder={readyMaterial ? '写下你对这份材料的疑问…' : '添加一份材料，开启有依据的问答…'} onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void ask(); } }} />
+              <label htmlFor="question" className="sr-only">向材料提问</label><Textarea id="question" ref={questionInput} value={question} maxLength={4000} disabled={!readyMaterial || locked || uploading} onChange={e => setQuestion(e.target.value)} placeholder={readyMaterial ? '写下你对这份材料的疑问…' : '添加一份材料，开启有依据的问答…'} onKeyDown={e => { if (!e.nativeEvent.isComposing && (e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); void ask(); } }} />
               <div className="composer-bottom"><button className="icon-button composer-add" type="button" aria-label="添加 PDF 材料" onClick={() => input.current?.click()} disabled={locked || uploading || asking}><Plus size={17} /></button><span className="send-hint">⌘ / Ctrl + Enter</span><button type="submit" className="send-button" aria-label={asking ? '正在提问' : '发送问题'} disabled={locked || !readyMaterial || !question.trim() || asking || uploading}>{asking ? <LoaderCircle className="spin" size={17} /> : <><span>提问</span><ArrowUp size={17} /></>}</button></div>
               {questionStorageError && <p className="error-text">本机问题草稿存储不可用，请保留当前页面。</p>}
             </form><p className="ai-notice">AI 回答仅供学习参考，请结合原文判断。</p>
@@ -186,9 +193,11 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
           <div hidden={tab !== 'cards'} role="tabpanel" id="cards-panel" aria-labelledby="cards-tab" className="cards-tab-content" tabIndex={0}><CardsPanel cards={study.state.cards} editor={editor} setEditor={setEditor} onSave={saveCard} onReview={(id, reviewStatus) => study.update(s => ({ ...s, cards: s.cards.map(c => c.id === id ? { ...c, reviewStatus, updatedAt: new Date().toISOString() } : c) }), true)} onSource={openCitation} disabled={locked} /></div>
         </aside>
       </div>
-      <footer className="workspace-footer"><span><Leaf size={14} />学习的进步，藏在你自己的表述里。</span><button className={`service-status ${health}`} onClick={checkHealth} title="点击检查本机后端连接"><span className="dot" />{health === 'online' ? fixture ? '接口测试桩已连接' : '本机服务已连接' : health === 'checking' ? '正在检查本机服务' : '本机服务未连接'}<RotateCw size={12} /></button></footer>
+      <footer className="workspace-footer"><span>知页 · 个人课程学习空间</span><button className={`service-status ${health}`} onClick={checkHealth} title="点击检查本机后端连接"><span className="dot" />{health === 'online' ? fixture ? '接口测试桩已连接' : '本机服务已连接' : health === 'checking' ? '正在检查本机服务' : '本机服务未连接'}<RotateCw size={12} /></button></footer>
     </main>
-    {toast && <div className="toast" role="status"><Check size={16} />{toast}</div>}
+    <Input ref={input} type="file" accept=".pdf,application/pdf" aria-label="上传课程 PDF" className="sr-only" disabled={locked || uploading || asking} onChange={e => void upload(e.target.files?.[0])} />
+    <ConfirmDialog open={confirmReplace} title="替换当前卡片草稿？" confirmLabel="替换草稿" onCancel={() => setConfirmReplace(false)} onConfirm={() => { setConfirmReplace(false); createFromAnswer(true); }}>当前尚未提交的内容将被新的 AI 草稿替换。已保存的理解卡片不受影响。</ConfirmDialog>
+    {toast && <Toast>{toast}</Toast>}
   </div>;
 }
 function QuoteIcon() { return <FileText size={16} />; }

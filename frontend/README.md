@@ -31,7 +31,7 @@ npm run preview
 - 目标与下次目标；服务连接、读取、保存和失败提示。
 - 真实 `/api/materials` 上传入口，文件类型/大小预检，后端同步解析结果；新材料成功才切换。
 - PDF 实际渲染、页序输入、翻页、缩放、原文件打开；点击引用定位与摘录查看。
-- 「静谧书房」UI：暖白、松绿、细边框、舒适字号；材料、阅读、助手三区，保留显式 PDF 上下文、Ask AI 与理解卡片。
+- 统一浅色工作台 UI：中性灰白、品牌绿、细边框、14px正文与紧凑工具栏；材料、阅读、助手三区，保留显式 PDF 上下文、Ask AI 与理解卡片。
 - 独立首页：原创 SVG 细线路径背景、学习流程示意、工作台入口；动效遵循减少动画设置，并在离屏或页面隐藏时暂停。
 - 可折叠引用来源、编号与摘录；学习步骤指引；工具标签支持方向键、Home / End。
 - 非流式问答、当前范围/版本、按回答段落对应引用、材料不足与请求失败保留问题。
@@ -71,3 +71,22 @@ BACKEND_URL=http://127.0.0.1:8011 npm run dev -- --port 5174
 真实问答、引用是否支持结论、PDF 拒绝扫描件、磁盘持久化与后端重启恢复均需 B 服务交付后验收。A 前端测试通过不代表 D0 完整链路通过。
 
 在仓库根目录运行 `python3 frontend/scripts/package-a.py` 可重建 `artifacts/A-frontend-handoff.zip`。此包仅含 A 源码与交接资料，不包含 B 服务、密钥、运行数据或依赖缓存。
+
+## 本次 UI 重构与浏览器验收
+
+设计规范见[DESIGN_SYSTEM.md](../DESIGN_SYSTEM.md)，审计见[UI_AUDIT.md](../UI_AUDIT.md)，阶段检查点、文件与截图见[验收记录](../docs/UI_REFACTOR_ACCEPTANCE.md)。已统一基础控件、紧凑顶栏/目标栏、三栏工作台、真实会话材料列表、AI与理解徽标、引用来源、确认Dialog和可操作错误反馈。本地Inter400/500/600与许可在public/fonts/；中文使用系统字体。
+
+```sh
+npm ci
+npm test
+npm run build
+npm run test:ui
+```
+
+需要本机Chrome；若使用Playwright自带Chromium，先运行 `npx playwright install chromium`，再运行 `PLAYWRIGHT_CHANNEL=chromium npm run test:ui`。Playwright配置会启动4173默认入口、8011显式接口测试桩、4174隔离代理入口；本机复用已有同端口服务时须确认4174指向8011。CI使用独立端口服务，不复用。
+
+测试涵盖1440×900、768×1024、375×812；包含全hash路由、三宽学习流程、文件失败、引用定位、历史来源范围、草稿恢复、保存重试、Markdown内容、键盘焦点和axe自动可访问性。成功流程页面始终显示接口测试桩标识，不能作为真实模型、PDF解析和服务重启持久化通过的证据。
+
+已启动默认预览后，可用 `npm run test:screenshots -- D` 再生成实际页面三宽截图；`UI_BASE_URL`可指定受检入口，输出记录数据模式。默认入口后端不可达时保留HTTP500与重试，不会切换为测试答案。
+
+材料列表保留当前会话中真实上传成功的材料，刷新后从readingPosition恢复当前材料。没有全量材料查询API，因此不承诺跨刷新完整历史材料列表；卡片旧来源仍可独立打开。

@@ -1,0 +1,206 @@
+[
+  {
+    "name": "home",
+    "width": 1440,
+    "viewport": 1440,
+    "scrollWidth": 1440,
+    "height": 1855,
+    "headerHeight": 88,
+    "readerVisible": false,
+    "assistantVisible": false,
+    "materialVisible": false,
+    "alert": [],
+    "errors": [],
+    "failedResponses": []
+  },
+  {
+    "name": "study",
+    "width": 1440,
+    "viewport": 1440,
+    "scrollWidth": 1440,
+    "height": 987,
+    "headerHeight": 77,
+    "goalHeight": 56,
+    "readerTop": 307,
+    "readerVisible": true,
+    "assistantVisible": true,
+    "materialVisible": true,
+    "alert": [
+      "尚未连接学习服务服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+    ],
+    "errors": [],
+    "failedResponses": [
+      {
+        "url": "http://127.0.0.1:4173/api/state",
+        "status": 500
+      },
+      {
+        "url": "http://127.0.0.1:4173/api/health",
+        "status": 500
+      }
+    ]
+  },
+  {
+    "name": "guide",
+    "width": 1440,
+    "viewport": 1440,
+    "scrollWidth": 1440,
+    "height": 1147,
+    "headerHeight": 77,
+    "goalHeight": 56,
+    "readerTop": 466.59375,
+    "readerVisible": true,
+    "assistantVisible": true,
+    "materialVisible": true,
+    "alert": [
+      "尚未连接学习服务服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+    ],
+    "errors": [],
+    "failedResponses": [
+      {
+        "url": "http://127.0.0.1:4173/api/state",
+        "status": 500
+      },
+      {
+        "url": "http://127.0.0.1:4173/api/health",
+        "status": 500
+      }
+    ]
+  },
+  {
+    "name": "home",
+    "width": 768,
+    "viewport": 768,
+    "scrollWidth": 768,
+    "height": 1772,
+    "headerHeight": 76,
+    "readerVisible": false,
+    "assistantVisible": false,
+    "materialVisible": false,
+    "alert": [],
+    "errors": [],
+    "failedResponses": []
+  },
+  {
+    "name": "study",
+    "width": 768,
+    "viewport": 768,
+    "scrollWidth": 768,
+    "height": 978,
+    "headerHeight": 70,
+    "goalHeight": 56,
+    "readerTop": 350,
+    "readerVisible": true,
+    "assistantVisible": false,
+    "materialVisible": false,
+    "alert": [
+      "尚未连接学习服务服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+    ],
+    "errors": [],
+    "failedResponses": [
+      {
+        "url": "http://127.0.0.1:4173/api/state",
+        "status": 500
+      },
+      {
+        "url": "http://127.0.0.1:4173/api/health",
+        "status": 500
+      }
+    ]
+  },
+  {
+    "name": "guide",
+    "width": 768,
+    "viewport": 768,
+    "scrollWidth": 768,
+    "height": 1138,
+    "headerHeight": 70,
+    "goalHeight": 56,
+    "readerTop": 509.59375,
+    "readerVisible": true,
+    "assistantVisible": false,
+    "materialVisible": false,
+    "alert": [
+      "尚未连接学习服务服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+    ],
+    "errors": [],
+    "failedResponses": [
+      {
+        "url": "http://127.0.0.1:4173/api/state",
+        "status": 500
+      },
+      {
+        "url": "http://127.0.0.1:4173/api/health",
+        "status": 500
+      }
+    ]
+  },
+  {
+    "name": "home",
+    "width": 375,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "height": 2293,
+    "headerHeight": 76,
+    "readerVisible": false,
+    "assistantVisible": false,
+    "materialVisible": false,
+    "alert": [],
+    "errors": [],
+    "failedResponses": []
+  },
+  {
+    "name": "study",
+    "width": 375,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "height": 1055,
+    "headerHeight": 99,
+    "goalHeight": 78,
+    "readerTop": 469.1875,
+    "readerVisible": true,
+    "assistantVisible": false,
+    "materialVisible": false,
+    "alert": [
+      "尚未连接学习服务服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+    ],
+    "errors": [],
+    "failedResponses": [
+      {
+        "url": "http://127.0.0.1:4173/api/state",
+        "status": 500
+      },
+      {
+        "url": "http://127.0.0.1:4173/api/health",
+        "status": 500
+      }
+    ]
+  },
+  {
+    "name": "guide",
+    "width": 375,
+    "viewport": 375,
+    "scrollWidth": 375,
+    "height": 1243,
+    "headerHeight": 99,
+    "goalHeight": 78,
+    "readerTop": 656.78125,
+    "readerVisible": true,
+    "assistantVisible": false,
+    "materialVisible": false,
+    "alert": [
+      "尚未连接学习服务服务未返回 JSON（HTTP 500），请检查后端与 /api 代理。 接通前不会写入空白状态。重新连接"
+    ],
+    "errors": [],
+    "failedResponses": [
+      {
+        "url": "http://127.0.0.1:4173/api/state",
+        "status": 500
+      },
+      {
+        "url": "http://127.0.0.1:4173/api/health",
+        "status": 500
+      }
+    ]
+  }
+]

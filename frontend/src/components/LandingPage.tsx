@@ -1,40 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, BookOpen, Check, FileText, Leaf, MessageSquare, Quote, Sparkles } from 'lucide-react';
 
-// Original SVG paths: no copied component code or animation dependency.
-function BackgroundPaths() {
-  return <svg className="background-paths" viewBox="0 0 1440 760" fill="none" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <g>{Array.from({ length: 14 }, (_, i) => <path key={`left-${i}`} d={`M ${-240 + i * 27} -60 C ${160 + i * 19} 120 ${-180 + i * 25} 360 ${130 + i * 20} 500 S ${700 + i * 11} 520 ${660 + i * 17} 830`} />)}</g>
-    <g>{Array.from({ length: 14 }, (_, i) => <path key={`right-${i}`} d={`M ${1640 - i * 27} -100 C ${1150 - i * 17} 130 ${1630 - i * 20} 350 ${1340 - i * 19} 510 S ${860 - i * 15} 550 ${800 - i * 12} 840`} />)}</g>
-  </svg>;
-}
-
 export default function LandingPage() {
-  const hero = useRef<HTMLElement>(null);
-  const [animate, setAnimate] = useState(false);
-  useEffect(() => {
-    const element = hero.current;
-    if (!element) return;
-    let visible = false;
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setAnimate(visible && !document.hidden && !reduced.matches);
-    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; update(); });
-    observer.observe(element);
-    document.addEventListener('visibilitychange', update); reduced.addEventListener('change', update);
-    return () => { observer.disconnect(); document.removeEventListener('visibilitychange', update); reduced.removeEventListener('change', update); };
-  }, []);
   return <div className="landing-page">
     <header className="landing-header"><a className="brand" href="#home"><span className="brand-mark"><BookOpen size={23} /></span><span>知页<span className="brand-en">个人课程学习空间</span></span></a><nav aria-label="首页导航"><a href="#how-it-works">如何使用</a><a className="button secondary" href="#study">进入学习空间<ArrowRight size={15} /></a></nav></header>
     <main>
-      <section ref={hero} className={`landing-hero ${animate ? 'paths-running' : ''}`} aria-labelledby="home-title">
-        <BackgroundPaths />
+      <section className="landing-hero" aria-labelledby="home-title">
         <div className="hero-copy"><span className="hero-kicker"><Leaf size={14} />为真正读懂，留一点空间</span>
           <h1 id="home-title">让每一次阅读，<br /><span>都留下理解。</span></h1>
           <p>把讲义、疑问与自己的思考放在一起。<br />读原文，问清楚，再用自己的话记下来。</p>
           <div className="hero-actions"><a className="button primary" href="#study">开始我的学习<ArrowRight size={17} /></a><a className="button hero-secondary" href="#how-it-works">看看如何使用<ArrowDown size={16} /></a></div>
           <div className="hero-footnote"><span><Check size={13} />有出处的问答</span><span><Check size={13} />自己改写的卡片</span><span><Check size={13} />本机学习空间</span></div>
         </div>
-        <a className="hero-scroll" href="#how-it-works">从一份材料开始<ArrowDown size={15} /></a>
       </section>
       <section id="how-it-works" className="workflow-section" aria-labelledby="workflow-title">
         <div className="workflow-heading"><div><span className="eyebrow">一个完整的学习过程</span><h2 id="workflow-title">从「看过了」，到「说得清」。</h2></div><a className="text-button" href="#study/guide">打开工作台，跟着做<ArrowRight size={16} /></a></div>
