@@ -5,7 +5,7 @@
 .app-header { display: flex; align-items: center; gap: 24px; min-height: 52px; padding: 8px 20px; background: var(--study-surface); border-bottom: 1px solid var(--study-border); }
 .brand { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; white-space: nowrap; color: var(--study-text); }
 .brand-mark { display: grid; place-items: center; width: 28px; height: 28px; color: var(--study-primary); background: var(--study-selected); border-radius: 6px; }
-.brand-en { display: none; }
+.brand-en { display: block; font-size: 10px; line-height: 14px; font-weight: 500; letter-spacing: 0.08em; color: var(--study-muted); }
 .workspace-breadcrumb { display: flex; align-items: center; gap: 12px; min-width: 0; font-size: 13px; color: var(--study-muted); }
 .workspace-breadcrumb h1 { font-size: 13px; font-weight: 500; color: var(--study-text); white-space: nowrap; }
 .breadcrumb-material { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 280px; }
@@ -297,3 +297,26 @@
 }
 .skeleton-short { width: 65%; }
 .answer-empty { padding: 12px 0; font-size: 13px; color: var(--study-muted); }
+
+/* Course import and board reuse the workspace's existing controls and panels. */
+.learn-import {border:1px solid var(--border, #ddd);border-radius:10px;background:var(--surface,#fff);margin:8px 0; flex-shrink:0}
+.learn-import summary {cursor:pointer;padding:10px 14px;font-size:13px;font-weight:600}
+.learn-content {padding:0 14px 14px;max-height:42vh;overflow:auto}
+.learn-actions,.course-selectors,.board-tools {display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.course-selectors label,.board-tools label,.scope-select {display:flex;gap:6px;align-items:center;font-size:12px;min-width:0}
+.course-selectors select,.board-tools select,.board-tools input,.scope-select select {min-width:0;max-width:230px;border:1px solid #d8d8df;border-radius:6px;padding:6px;background:white;color:#282834}
+.import-files,.import-batch ul {padding-left:18px;font-size:12px;line-height:1.9;overflow-wrap:anywhere}
+.import-files {list-style:none;padding-left:0}.import-files input {margin-right:8px}
+.import-batch {border-top:1px solid #ddd;padding:8px 0;font-size:12px}
+.reader-content {display:flex;flex-direction:column;min-height:0;flex:1}.reader-content[hidden],.board-container[hidden] {display:none}
+.board-container {min-height:0;flex:1;display:flex;overflow:auto}.whiteboard {padding:12px;flex:1;min-width:0;overflow:auto}
+.board-heading {display:flex;justify-content:space-between;gap:8px;align-items:center}.board-heading h2{font-size:16px}.board-heading span{font-size:12px}
+.board-scroll {width:100%;overflow:auto;border:1px solid #dedee5;border-radius:8px;max-height:55vh;margin-top:10px}
+.board-canvas {position:relative;background-color:var(--study-hover);background-image:radial-gradient(#cfded6 1px,transparent 1px);background-size:20px 20px}
+.board-edges{position:absolute;inset:0;pointer-events:none}.board-edges line{stroke:var(--study-primary);stroke-width:2}.board-edges text{fill:var(--study-text);font-size:12px;paint-order:stroke;stroke:var(--study-hover);stroke-width:4px}
+.board-node{position:absolute;width:240px;padding:10px;border:1px solid var(--study-border);border-radius:9px;background:white;box-shadow:0 3px 10px #2921390c}
+.board-drag{width:100%;text-align:left;font-weight:600;cursor:grab;touch-action:none;border:0;background:none;color:var(--study-text);overflow-wrap:anywhere}
+.board-node p{font-size:12px;white-space:pre-wrap;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;margin:8px 0}
+.board-node-actions{display:flex;gap:5px}.board-node .button{padding:5px 8px;font-size:11px}.board-node>.text-button{font-size:11px;max-width:100%;overflow-wrap:anywhere}
+.board-empty {padding:30px;font-size:13px;color:#666}.board-edge-list{font-size:12px;padding-left:18px}.scope-select{padding-bottom:8px;flex-wrap:wrap}
+@media(max-width:900px){.learn-content{max-height:45vh}.course-selectors{align-items:stretch}.course-selectors label{flex:1 1 100%}.course-selectors select{flex:1;max-width:100%}.board-tools>*{max-width:100%}.board-heading{flex-wrap:wrap}.workspace-control-actions{flex-wrap:wrap}.board-scroll{max-height:450px}.reader-content{min-height:420px}}

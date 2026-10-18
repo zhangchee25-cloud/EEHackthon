@@ -6,12 +6,19 @@ import { CardSchema, CitationSchema, editCard, type Card, type Citation } from '
 import SourceList from './SourceList';
 import { readDraft, storeDraft } from '../hooks/useStudyState';
 
-const EditorSchema = z.object({ id: z.string().nullable(), title: z.string(), body: z.string(), baseline: z.string().nullable(), sourceRefs: z.array(CitationSchema) });
+const EditorSchema = z.object({ id: z.string().nullable(), courseId: z.string().nullable().default(null), title: z.string(), body: z.string(), baseline: z.string().nullable(), sourceRefs: z.array(CitationSchema) });
 export type EditorDraft = z.infer<typeof EditorSchema>;
 export const EDITOR_KEY = 'zhiye:card-draft:v1';
-export function getEditorDraft(): EditorDraft | null { const r = EditorSchema.safeParse(readDraft(EDITOR_KEY)); return r.success ? r.data : null; }
-type Props = { cards: Card[]; editor: EditorDraft | null; setEditor: (e: EditorDraft | null) => void; onSave: (card: Card) => void; onReview: (id: string, value: Card['reviewStatus']) => void; onSource: (c: Citation) => void; disabled: boolean };
-export default function CardsPanel({ cards, editor, setEditor, onSave, onReview, onSource, disabled }: Props) {
+export function getEditorDraft(courseId: string | null = null): EditorDraft | null {
+  const key=`${EDITOR_KEY}:${courseId || 'standalone'}`;
+  const stored=readDraft(key);
+  const old=stored===null&&courseId===null?readDraft(EDITOR_KEY):null;
+  const r=EditorSchema.safeParse(stored ?? old);
+  if(r.success&&old&&storeDraft(key,r.data))storeDraft(EDITOR_KEY,null);
+  return r.success?r.data:null;
+}
+type Props = { courseId: string | null; cards: Card[]; editor: EditorDraft | null; setEditor: (e: EditorDraft | null) => void; onSave: (card: Card) => void; onReview: (id: string, value: Card['reviewStatus']) => void; onSource: (c: Citation) => void; disabled: boolean };
+export default function CardsPanel({ courseId, cards, editor, setEditor, onSave, onReview, onSource, disabled }: Props) {
   const [filter, setFilter] = useState<'all' | 'to_review' | 'self_checked'>('all');
   const [storageError, setStorageError] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -22,7 +29,7 @@ export default function CardsPanel({ cards, editor, setEditor, onSave, onReview,
     else if (hadEditor.current) createButton.current?.focus({ preventScroll: true });
     hadEditor.current = !!editor;
   }, [!!editor]);
-  useEffect(() => { setStorageError(!storeDraft(EDITOR_KEY, editor)); }, [editor]);
+  useEffect(() => { if (editor && editor.courseId !== courseId) return; setStorageError(!storeDraft(`${EDITOR_KEY}:${courseId || 'standalone'}`, editor)); }, [editor, courseId]);
   const filtered = cards.filter(c => filter === 'all' || c.reviewStatus === filter);
   const changed = editor?.baseline === null || editor?.body.trim() !== editor?.baseline?.trim();
   const valid = editor && editor.title.trim() && editor.body.trim() && changed;
@@ -31,7 +38,7 @@ export default function CardsPanel({ cards, editor, setEditor, onSave, onReview,
     const old = cards.find(c => c.id === editor.id);
     const time = new Date().toISOString();
     const card = old ? editCard(old, editor.title, editor.body) : {
-      id: editor.id || crypto.randomUUID(), title: editor.title.trim(), body: editor.body.trim(),
+      id: editor.id || crypto.randomUUID(), courseId: editor.courseId, title: editor.title.trim(), body: editor.body.trim(),
       sourceRefs: editor.sourceRefs, reviewStatus: 'to_review' as const, createdAt: time, updatedAt: time,
     };
     onSave(CardSchema.parse(card)); setEditor(null);
@@ -50,9 +57,9 @@ export default function CardsPanel({ cards, editor, setEditor, onSave, onReview,
       <div className="editor-actions"><Button onClick={discard}><X size={14} />放弃草稿</Button><Button variant="primary" disabled={disabled || !valid} onClick={commit}><Save size={15} />保存我的理解</Button></div>
       <p className="muted fine">保存后标记为待复习；“已自检”由你本人主动标记。</p>
     </div> : <>
-      <div className="cards-toolbar"><select aria-label="筛选卡片" value={filter} onChange={e => setFilter(e.target.value as typeof filter)}><option value="all">全部卡片 · {cards.length}</option><option value="to_review">待复习 · {cards.filter(c => c.reviewStatus === 'to_review').length}</option><option value="self_checked">已自检 · {cards.filter(c => c.reviewStatus === 'self_checked').length}</option></select><button ref={createButton} className="text-button" disabled={disabled} onClick={() => setEditor({ id: null, title: '', body: '', baseline: null, sourceRefs: [] })}><Plus size={14} />手写卡片</button></div>
-      {filtered.length === 0 ? <EmptyState icon={<ClipboardPen size={20} />} title={cards.length ? '这个分类还没有卡片' : '留下第一张理解卡片'} action={!cards.length && <Button disabled={disabled} onClick={() => setEditor({ id: null, title: '', body: '', baseline: null, sourceRefs: [] })}><Plus size={14} />新建手写卡片</Button>}>{cards.length ? '切换分类，查看其他理解卡片。' : '从 AI 回答创建草稿并改写，或用自己的话新建一张卡片。'}</EmptyState> : <div className="card-list">{filtered.map(card => <article className="study-card" key={card.id}>
-        <div className="study-card-top"><Badge tone={card.reviewStatus === 'self_checked' ? 'brand' : 'warning'}>{card.reviewStatus === 'self_checked' ? <CheckCheck size={12} /> : <span className="dot" />}{card.reviewStatus === 'self_checked' ? '已自检' : '待复习'}</Badge><button className="icon-button" aria-label={`编辑卡片 ${card.title}`} disabled={disabled} onClick={() => setEditor({ id: card.id, title: card.title, body: card.body, baseline: null, sourceRefs: card.sourceRefs })}><Pencil size={14} /></button></div>
+      <div className="cards-toolbar"><select aria-label="筛选卡片" value={filter} onChange={e => setFilter(e.target.value as typeof filter)}><option value="all">全部卡片 · {cards.length}</option><option value="to_review">待复习 · {cards.filter(c => c.reviewStatus === 'to_review').length}</option><option value="self_checked">已自检 · {cards.filter(c => c.reviewStatus === 'self_checked').length}</option></select><button ref={createButton} className="text-button" disabled={disabled} onClick={() => setEditor({ id: null, courseId, title: '', body: '', baseline: null, sourceRefs: [] })}><Plus size={14} />手写卡片</button></div>
+      {filtered.length === 0 ? <EmptyState icon={<ClipboardPen size={20} />} title={cards.length ? '这个分类还没有卡片' : '留下第一张理解卡片'} action={!cards.length && <Button disabled={disabled} onClick={() => setEditor({ id: null, courseId, title: '', body: '', baseline: null, sourceRefs: [] })}><Plus size={14} />新建手写卡片</Button>}>{cards.length ? '切换分类，查看其他理解卡片。' : '从 AI 回答创建草稿并改写，或用自己的话新建一张卡片。'}</EmptyState> : <div className="card-list">{filtered.map(card => <article className="study-card" key={card.id}>
+        <div className="study-card-top"><Badge tone={card.reviewStatus === 'self_checked' ? 'brand' : 'warning'}>{card.reviewStatus === 'self_checked' ? <CheckCheck size={12} /> : <span className="dot" />}{card.reviewStatus === 'self_checked' ? '已自检' : '待复习'}</Badge><button className="icon-button" aria-label={`编辑卡片 ${card.title}`} disabled={disabled} onClick={() => setEditor({ id: card.id, courseId: card.courseId, title: card.title, body: card.body, baseline: null, sourceRefs: card.sourceRefs })}><Pencil size={14} /></button></div>
         <h3>{card.title}</h3><p className="card-content">{card.body}</p><SourceList refs={card.sourceRefs} onOpen={onSource} />
         <div className="study-card-bottom"><span>{new Date(card.updatedAt).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' })} 更新</span><button className="text-button" disabled={disabled} onClick={() => onReview(card.id, card.reviewStatus === 'to_review' ? 'self_checked' : 'to_review')}>{card.reviewStatus === 'to_review' ? <><Check size={13} />标记已自检</> : '设为待复习'}</button></div>
       </article>)}</div>}

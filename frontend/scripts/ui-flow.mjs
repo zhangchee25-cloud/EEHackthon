@@ -70,7 +70,7 @@ export async function runStudyFlow(page, stage = 'D') {
   if(mobile) await page.getByRole('tab',{name:'阅读材料'}).click();await expect(page.getByLabel('文件页序',{exact:true})).toHaveValue('2');
   await assistant();await page.getByRole('button',{name:'手写卡片',exact:true}).click();await page.getByLabel('卡片标题').fill('未提交的理解');
   await page.getByLabel('我的理解',{exact:true}).fill('返回首页再进入时应保留。');
-  await page.getByRole('link',{name:'知页首页',exact:true}).click();await page.getByRole('link',{name:/进入学习空间/}).click();
+  await page.getByRole('link',{name:'清大搭首页',exact:true}).click();await page.getByRole('link',{name:/进入学习空间/}).click();
   await expect(page.getByLabel('我的理解',{exact:true})).toHaveValue('返回首页再进入时应保留。');
   await page.getByRole('button',{name:'放弃草稿',exact:true}).click();await page.getByRole('dialog',{name:'放弃当前卡片草稿？'}).getByRole('button',{name:'确认放弃'}).click();
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);expect(overflow).toBe(false);expect(errors).toEqual([]);

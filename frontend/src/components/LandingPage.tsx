@@ -2,7 +2,7 @@ import { ArrowDown, ArrowRight, BookOpen, Check, FileText, Leaf, MessageSquare, 
 
 export default function LandingPage() {
   return <div className="landing-page">
-    <header className="landing-header"><a className="brand" href="#home"><span className="brand-mark"><BookOpen size={23} /></span><span>知页<span className="brand-en">个人课程学习空间</span></span></a><nav aria-label="首页导航"><a href="#how-it-works">如何使用</a><a className="button secondary" href="#study">进入学习空间<ArrowRight size={15} /></a></nav></header>
+    <header className="landing-header"><a className="brand" href="#home"><span className="brand-mark"><BookOpen size={23} /></span><span>清大搭<span className="brand-en" lang="en">THU O PAL</span></span></a><nav aria-label="首页导航"><a href="#how-it-works">如何使用</a><a className="button secondary" href="#study">进入学习空间<ArrowRight size={15} /></a></nav></header>
     <main>
       <section className="landing-hero" aria-labelledby="home-title">
         <div className="hero-copy"><span className="hero-kicker"><Leaf size={14} />为真正读懂，留一点空间</span>
@@ -24,6 +24,6 @@ export default function LandingPage() {
         <div className="workflow-bottom"><p>不急着积累更多答案。先把一个问题，真正想明白。</p><a className="button primary" href="#study">开始我的学习<ArrowRight size={16} /></a></div>
       </section>
     </main>
-    <footer className="landing-footer"><span><BookOpen size={16} />知页 · 每一页，都有你的思考</span><span>507 队 · 本机演示</span></footer>
+    <footer className="landing-footer"><span><BookOpen size={16} />清大搭 · 每一页，都有你的思考</span><span>507 队 · 本机演示</span></footer>
   </div>;
 }

@@ -10,8 +10,10 @@
     "test": "vitest run",
     "postinstall": "node scripts/copy-pdf-assets.mjs",
     "test:fixture": "node tests/fixture-server.mjs",
-    "test:ui": "playwright test",
-    "test:screenshots": "node scripts/ui-screenshots.mjs"
+    "test:ui": "playwright test -c playwright.a.config.ts",
+    "test:screenshots": "node scripts/ui-screenshots.mjs",
+    "test:ui:legacy": "playwright test -c playwright.config.ts",
+    "package:a": "python3 scripts/package-a.py"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

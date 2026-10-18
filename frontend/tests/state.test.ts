@@ -2,13 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { AnswerSchema, editCard, initialState, toMarkdown, type Card } from '../src/domain';
 import { SaveQueue } from '../src/hooks/useStudyState';
 
-const card: Card = { id: 'card', title: 'Capacitor', body: 'My explanation', reviewStatus: 'self_checked', sourceRefs: [{ id: 'ref', materialId: 'mat', versionId: 'v1', title: 'lecture.pdf', pageStart: 2, pageEnd: 2, quote: 'Energy is stored in the electric field.' }], createdAt: '2026-10-18T06:00:00Z', updatedAt: '2026-10-18T06:00:00Z' };
+const card: Card = { id: 'card', courseId: null, title: 'Capacitor', body: 'My explanation', reviewStatus: 'self_checked', sourceRefs: [{ id: 'ref', materialId: 'mat', versionId: 'v1', title: 'lecture.pdf', pageStart: 2, pageEnd: 2, quote: 'Energy is stored in the electric field.' }], createdAt: '2026-10-18T06:00:00Z', updatedAt: '2026-10-18T06:00:00Z' };
 function deferred() { let resolve!: () => void; const promise = new Promise<void>(r => { resolve = r; }); return { resolve, promise }; }
 
 describe('save ordering and recovery', () => {
   it('allows only one PUT, coalesces intermediate edits, and saves the latest complete state', async () => {
     const gate = deferred(); const sent: string[] = []; const outcomes: boolean[] = [];
-    const queue = new SaveQueue(async s => { sent.push(s.goal); if (sent.length === 1) await gate.promise; }, (_error, idle) => outcomes.push(idle));
+    const queue = new SaveQueue(async s => { sent.push(s.goal); if (sent.length === 1) await gate.promise; return {...s, revision:s.revision+1}; }, (_error, idle) => outcomes.push(idle));
     queue.enqueue({ ...initialState, goal: 'first' }); const writing = queue.flush();
     queue.enqueue({ ...initialState, goal: 'middle' }); void queue.flush();
     queue.enqueue({ ...initialState, goal: 'last' });
@@ -18,7 +18,7 @@ describe('save ordering and recovery', () => {
   });
   it('keeps newer edits when an older save fails, and retries without creating another card', async () => {
     const gate = deferred(); let failing = true; const sent: string[] = []; const errors: (string | null)[] = [];
-    const queue = new SaveQueue(async s => { sent.push(s.goal); if (failing) { await gate.promise; throw new Error('disk full'); } }, error => errors.push(error));
+    const queue = new SaveQueue(async s => { sent.push(s.goal); if (failing) { await gate.promise; throw new Error('disk full'); } return {...s,revision:s.revision+1}; }, error => errors.push(error?.message || null));
     queue.enqueue({ ...initialState, goal: 'old', cards: [card] }); const writing = queue.flush();
     queue.enqueue({ ...initialState, goal: 'new', cards: [card] }); gate.resolve(); await writing;
     expect(queue.hasPending()).toBe(true); expect(errors.at(-1)).toBe('disk full');
@@ -37,10 +37,10 @@ describe('understanding cards and sources', () => {
     expect(text).not.toContain('data:application/pdf');
   });
   it('rejects dangling, cross-version and inverted references', () => {
-    const base = { answerSegments: [{ id: 'seg', text: 'Explanation', citationIds: ['ref'] }], citations: card.sourceRefs, selectedScope: { materialId: 'mat', versionId: 'v1' }, limitations: [] };
+    const base = { supported: true, answerSegments: [{ id: 'seg', text: 'Explanation', citationIds: ['ref'] }], citations: card.sourceRefs, selectedScope: [{ materialId: 'mat', versionId: 'v1', title:'lecture.pdf' }], limitations: [] };
     expect(AnswerSchema.safeParse(base).success).toBe(true);
     expect(AnswerSchema.safeParse({ ...base, citations: [] }).success).toBe(false);
-    expect(AnswerSchema.safeParse({ ...base, selectedScope: { materialId: 'mat', versionId: 'v2' } }).success).toBe(false);
+    expect(AnswerSchema.safeParse({ ...base, selectedScope: [{ materialId: 'mat', versionId: 'v2', title:'lecture.pdf' }] }).success).toBe(false);
     expect(AnswerSchema.safeParse({ ...base, citations: [{ ...card.sourceRefs[0], pageStart: 3, pageEnd: 1 }] }).success).toBe(false);
   });
 });
