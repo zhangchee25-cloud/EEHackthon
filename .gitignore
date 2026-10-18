@@ -1,0 +1,11 @@
+# Local credentials, uploaded materials, and generated runtime files
+.env
+backend/.env
+.venv/
+__pycache__/
+*.py[cod]
+backend/data/
+backend/logs/
+backend/test-results/
+.pytest_cache/
+
