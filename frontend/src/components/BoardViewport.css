@@ -1,0 +1,7 @@
+.board-viewport {display:flex;flex-direction:column;min-width:0;min-height:0}
+.board-zoom-tools {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;flex-shrink:0}
+.board-zoom-tools output {min-width:44px;text-align:center;font-size:13px;font-variant-numeric:tabular-nums}
+.board-viewport>.board-scroll {height:55vh;min-height:240px;max-height:600px;position:relative;overflow:auto;overscroll-behavior:contain;flex-shrink:1}
+.board-scaled-space {position:relative;overflow:hidden;min-width:100%;min-height:100%}
+.board-is-fullscreen .board-viewport {flex:1;min-height:0}
+.board-is-fullscreen .board-viewport>.board-scroll {flex:1;height:auto;min-height:0;max-height:none}

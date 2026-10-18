@@ -186,8 +186,8 @@
   },
   {
     "path": "docs/AI白板与直接建卡更新.md",
-    "bytes": 2931,
-    "sha256": "7a2c2d3e4aaf1ba0fde9d3e23889933351284080db5b8a999d106bcd43e261dc"
+    "bytes": 3252,
+    "sha256": "f41fdf22ddbfbc03909d8755c02af594cc2c44a13a6fc073ccdbe083bfe153f5"
   },
   {
     "path": "docs/B-验收记录.md",
@@ -315,6 +315,16 @@
     "sha256": "2cb41d6bc8850e30b9d13d3d2316e7651920d1b59ab558f863960f618edc5f13"
   },
   {
+    "path": "frontend/src/components/BoardViewport.css",
+    "bytes": 691,
+    "sha256": "598db4dca1fe66840fcdfe8453b3e4e63840743a139b12ed5c521ce1657a7d8f"
+  },
+  {
+    "path": "frontend/src/components/BoardViewport.tsx",
+    "bytes": 4303,
+    "sha256": "39dd45146f622db70805866ed04d8d1437b11c592e01774bfb1a0c4bcc79cdbd"
+  },
+  {
     "path": "frontend/src/components/CardsPanel.tsx",
     "bytes": 8077,
     "sha256": "01ce226295b6e3de4282797c3e8992d0cd32cc819019144d40661a786942abb4"
@@ -356,13 +366,13 @@
   },
   {
     "path": "frontend/src/components/Whiteboard.css",
-    "bytes": 1453,
-    "sha256": "dacf3a3be36b3ce48aa65aa3e613d1c3bcebb61af7b701ff080dfcdab9417ed4"
+    "bytes": 3276,
+    "sha256": "9d6540fcbb28b8c2f5ff70e331687e1a5714c0259f505ee4dd69c26165e58b1a"
   },
   {
     "path": "frontend/src/components/Whiteboard.tsx",
-    "bytes": 12235,
-    "sha256": "45b9a9ac8af54f215d4598c692004f230234316c74b6bb4eaa5ba1232d96007d"
+    "bytes": 18221,
+    "sha256": "1b27703dc3ca90b54a3877c914c9ab43e1963562b4395a26c5c6493b5f9753fc"
   },
   {
     "path": "frontend/src/domain.ts",
@@ -411,8 +421,8 @@
   },
   {
     "path": "frontend/tests/ai-board.spec.ts",
-    "bytes": 3978,
-    "sha256": "b3707e26db0cd3ac89cf0bc12570e3ee7664f351de417e987b4df9b93d3491e5"
+    "bytes": 9773,
+    "sha256": "0e6d98919e4e7b66bae1302ad3c70ae6581c8c73a4f04399b5766d75c522a804"
   },
   {
     "path": "frontend/tests/ai-board.test.ts",
@@ -481,7 +491,7 @@
   },
   {
     "path": "README.md",
-    "bytes": 7750,
-    "sha256": "e2eb4a463de16c3049c21593b44497f4b4f2b52c5d55b989e1f9d6ee98a2e83c"
+    "bytes": 7922,
+    "sha256": "7f7b3d30d903c09cafed6e2af833fceb9c507deaafd43ebec993f8eb21d10924"
   }
 ]
