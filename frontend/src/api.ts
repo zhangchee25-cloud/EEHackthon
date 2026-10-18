@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AnswerSchema, MaterialSchema, StateSchema, CourseSchema, CourseFileSchema, LearnStatusSchema, ImportBatchSchema, BoardSchema, type StudyState, type Board, type Material, type Answer } from './domain';
+import { AnswerSchema, MaterialSchema, StateSchema, CourseSchema, CourseFileSchema, LearnStatusSchema, ImportBatchSchema, BoardSchema, BoardPreviewSchema, type StudyState, type Board, type Material, type Answer } from './domain';
 
 export class ApiError extends Error {
   constructor(message: string, readonly status?: number, readonly code?: string, readonly details?: Record<string, unknown>) { super(message); this.name = 'ApiError'; }
@@ -59,6 +59,16 @@ export const api = {
   importBatch: async (batchId: string) => parse(ImportBatchSchema, await request(`/learn/imports/${id(batchId)}`)),
   retryImport: async (batchId: string, itemIds: string[]) => parse(ImportBatchSchema, await request(`/learn/imports/${id(batchId)}/retry`,json('POST',{itemIds}))),
   getBoard: async (courseId: string) => { const b = parse(BoardSchema, await request(`/courses/${id(courseId)}/board`)); if (b.courseId !== courseId) throw new ApiError('白板课程不匹配'); return b; },
+  generateBoard: async (courseId:string, instruction:string, requestId:string) => {
+    const preview=parse(BoardPreviewSchema,await request(`/courses/${id(courseId)}/board/generate`,json('POST',{instruction,requestId}),180000));
+    if(preview.courseId!==courseId)throw new ApiError('AI白板课程不匹配');
+    return preview;
+  },
+  applyBoard: async (courseId:string, previewId:string, stateRevision:number, boardRevision:number, _requestId?:string) => {
+    const result=parse(z.object({state:StateSchema,board:BoardSchema}),await request(`/courses/${id(courseId)}/board/apply`,json('POST',{previewId,stateRevision,boardRevision})));
+    if(result.board.courseId!==courseId)throw new ApiError('AI白板保存课程不匹配');
+    return result;
+  },
   saveBoard: async (board: Board) => { const b = parse(BoardSchema, await request(`/courses/${id(board.courseId)}/board`,json('PUT',board))); if (b.courseId !== board.courseId) throw new ApiError('白板课程不匹配'); if (b.revision !== board.revision + 1) throw new ApiError('白板保存响应没有确认下一版本，草稿已保留。'); return b; },
   fileUrl: (materialId: string, page = 1) => `/api/materials/${id(materialId)}/file#page=${page}`,
 };

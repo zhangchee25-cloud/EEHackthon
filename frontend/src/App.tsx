@@ -19,6 +19,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   const courseRef = useRef(courseId); courseRef.current = courseId;
   const readingRef = useRef(study.state.readingPosition); readingRef.current = study.state.readingPosition;
   const [boardOpen, setBoardOpen] = useState(false);
+  const [boardBusy, setBoardBusy] = useState(false);
   const [scope, setScope] = useState('course');
   const [courseError, setCourseError] = useState('');
   const [courseWarnings, setCourseWarnings] = useState<string[]>([]);
@@ -55,7 +56,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
   const [confirmReplace, setConfirmReplace] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const questionInput = useRef<HTMLTextAreaElement>(null);
-  const locked = !study.ready || !!study.recovery || study.conflict;
+  const locked = boardBusy || !study.ready || !!study.recovery || study.conflict;
   const scopedCards = study.state.cards.filter(c=>c.courseId === courseId);
   const current = material;
   const available = materials.filter(m=>m.status==='ready');
@@ -82,8 +83,9 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
       setMaterial(old=>result.materials.find(m=>m.materialId===(old?.materialId || readingRef.current?.materialId) && m.versionId===(old?.versionId || readingRef.current?.versionId)) || result.materials.find(m=>m.status==='ready') || null);
     }).catch(e=>{if(courseRef.current===owner)setCourseError(e.message);});
   },[courseId]);
+  useEffect(() => { setBoardOpen(false); }, [courseId]);
   useEffect(()=>{
-    setAnswer(null);setCitation(null);setOldView(null);setAskError('');setMaterials([]);setMaterial(null);setScope('course');setBoardOpen(false);setCourseWarnings([]);setCourseError('');
+    setAnswer(null);setCitation(null);setOldView(null);setAskError('');setMaterials([]);setMaterial(null);setScope('course');setCourseWarnings([]);setCourseError('');
     if(courseId) refreshCourse();
     else if(study.ready && study.state.readingPosition) {
       const pos=study.state.readingPosition;
@@ -153,6 +155,18 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
     const used = new Set(answer.answerSegments.flatMap(s => s.citationIds));
     setChatOpen(true); setMobileView('assistant'); setEditor({ id: null, courseId, title: answeredQuestion.slice(0, 120), body, baseline: body, sourceRefs: answer.citations.filter(c => used.has(c.id)) }); setTab('cards');
   };
+  const answerCard = useRef<{answer: Answer | null; id: string}>({answer: null, id: ''});
+  const createCardDirectly = () => {
+    if (locked || !answer?.answerSegments.length) return;
+    if (answerCard.current.answer !== answer) answerCard.current = {answer, id: crypto.randomUUID()};
+    const id = answerCard.current.id;
+    if (!study.state.cards.some(card => card.id === id)) {
+      const time = new Date().toISOString();
+      const used = new Set(answer.answerSegments.flatMap(segment => segment.citationIds));
+      saveCard({id, courseId, title: answeredQuestion.slice(0, 120), body: answer.answerSegments.map(segment => segment.text).join('\n\n'), origin: 'ai', sourceRefs: answer.citations.filter(c => used.has(c.id)), reviewStatus: 'to_review', createdAt: time, updatedAt: time});
+    } else setToast('这份回答已创建卡片，可在卡片列表中编辑。');
+    setChatOpen(true); setMobileView('assistant'); setTab('cards');
+  };
   const saveCard = (card: Card) => {
     study.update(s => ({ ...s, cards: s.cards.some(c => c.id === card.id) ? s.cards.map(c => c.id === card.id ? card : c) : [card, ...s.cards] }), true);
     setToast('卡片已提交保存，请查看顶部保存结果。');
@@ -168,7 +182,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
     if (next === 'ask') requestAnimationFrame(() => questionInput.current?.focus());
   };
   const guideStep = !study.state.goal.trim() ? 0 : !readyMaterial ? 1 : !answer ? 2 : !scopedCards.length ? 3 : 4;
-  const guideSteps = ['设定目标', '上传讲义', '提问并核对出处', '改写并保存卡片'];
+  const guideSteps = ['设定目标', '上传讲义', '提问并核对出处', '创建学习卡片'];
   const usedCitations = answer?.citations.filter(c => answer.answerSegments.some(s => s.citationIds.includes(c.id))) || [];
 
   return <div className={`app ${focus ? 'focused' : ''} ${!chatOpen ? 'chat-closed' : ''} ${materialsOpen ? 'materials-open' : ''}`} data-mobile-view={mobileView}>
@@ -194,7 +208,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
       {courseError&&<Alert title="课程材料未加载" action={<Button onClick={refreshCourse}>重试课程材料</Button>}>{courseError}</Alert>}
       {courseWarnings.map((w,i)=><p key={i} className="error-text">{w}</p>)}
       <section className="goal-bar"><Target size={15} /><label htmlFor="goal">本次目标</label><Input id="goal" value={study.state.goal} disabled={locked} onChange={e => study.update(s => ({ ...s, goal: e.target.value }))} onBlur={study.flush} maxLength={1000} placeholder="这次想弄懂什么？" /><span className="goal-note">一次专注一个问题</span></section>
-      {showGuide && <section className="study-guide" aria-label="学习流程指引"><div className="guide-heading"><strong>学习流程</strong><button className="icon-button" aria-label="关闭学习指引" onClick={() => setShowGuide(false)}><X size={16} /></button></div><ol>{guideSteps.map((step, i) => <li key={step} aria-current={guideStep === i ? 'step' : undefined} className={guideStep > i ? 'done' : ''}><span>{guideStep > i ? <Check size={12} /> : i + 1}</span>{step}</li>)}</ol><p>{!study.ready ? '先连接学习服务，再设定目标并上传 PDF。' : guideStep === 0 ? '写下这次想弄懂的问题。' : guideStep === 1 ? '上传一份含可选中文字的 PDF。' : guideStep === 2 ? '向材料提问，再点击引用核对原文。' : guideStep === 3 ? '从回答创建卡片，改写正文后保存。' : '理解已保存。可以自检、记录下次目标或导出。'}</p></section>}
+      {showGuide && <section className="study-guide" aria-label="学习流程指引"><div className="guide-heading"><strong>学习流程</strong><button className="icon-button" aria-label="关闭学习指引" onClick={() => setShowGuide(false)}><X size={16} /></button></div><ol>{guideSteps.map((step, i) => <li key={step} aria-current={guideStep === i ? 'step' : undefined} className={guideStep > i ? 'done' : ''}><span>{guideStep > i ? <Check size={12} /> : i + 1}</span>{step}</li>)}</ol><p>{!study.ready ? '先连接学习服务，再设定目标并上传 PDF。' : guideStep === 0 ? '写下这次想弄懂的问题。' : guideStep === 1 ? '上传一份含可选中文字的 PDF。' : guideStep === 2 ? '向材料提问，再点击引用核对原文。' : guideStep === 3 ? '从回答直接创建卡片，或按需编辑后保存。' : '理解已保存。可以自检、记录下次目标或导出。'}</p></section>}
       <div className="workspace-controls">
         <Button className="materials-toggle" aria-expanded={materialsOpen} aria-controls="materials-panel" onClick={() => { setMaterialsOpen(v => !v); setFocus(false); }}><PanelLeft size={15} />材料<span className="count">{knownMaterials.length}</span></Button>
         <span className="workspace-caption">课程学习<ChevronRight size={12} />{oldView ? '核对历史来源' : '阅读与理解'}</span>
@@ -210,7 +224,7 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
           <div className="sidebar-bottom"><div className="study-stats"><span>我的理解 <strong>{scopedCards.length}</strong></span><span>待复习 <strong>{reviewCount}</strong></span></div><div className="next-step"><label htmlFor="next-step">下次继续</label><Textarea id="next-step" rows={3} maxLength={2000} disabled={locked} value={study.state.nextStep} onChange={e => study.update(s => ({ ...s, nextStep: e.target.value }))} onBlur={study.flush} placeholder="记下下次的起点…" /></div></div>
         </aside>
         <div className="reader-column" id="reader-view" role="tabpanel" aria-labelledby="reader-view-tab" tabIndex={0}>
-          {courseId&&<div hidden={!boardOpen} className="board-container"><Whiteboard key={courseId} courseId={courseId} cards={scopedCards} disabled={locked||study.saveStatus!=='saved'} onSource={openCitation} onOpen={card=>{if(editor){setToast('请先保存或放弃当前卡片草稿。');showAssistant('cards');return;}setEditor({id:card.id,courseId:card.courseId,title:card.title,body:card.body,baseline:null,sourceRefs:card.sourceRefs});showAssistant('cards');}}/></div>}
+          {courseId&&<div hidden={!boardOpen} className="board-container"><Whiteboard key={courseId} stateRevision={study.state.revision} onApplied={async () => { await study.reload(); }} onBusyChange={setBoardBusy} courseId={courseId} cards={scopedCards} disabled={locked||!!editor||study.saveStatus!=='saved'} onSource={openCitation} onOpen={card=>{if(editor){setToast('请先保存或放弃当前卡片草稿。');showAssistant('cards');return;}setEditor({id:card.id,courseId:card.courseId,title:card.title,body:card.body,baseline:null,sourceRefs:card.sourceRefs});showAssistant('cards');}}/></div>}
           <div hidden={boardOpen} className="reader-content">
           {oldView && <div className="old-source-bar"><span>正在核对历史来源 · 版本 {oldView.versionId}</span><button className="text-button" onClick={() => { setOldView(null); setCitation(null); }}>返回当前材料</button></div>}
           <PdfReader onUpload={() => input.current?.click()} uploadDisabled={locked || uploading || asking} position={position} title={title} onAsk={() => showAssistant()} askDisabled={!readyMaterial || locked} onPage={page => { if (locked) return; if (oldView) setOldView({ ...oldView, page }); else study.update(s => s.readingPosition ? { ...s, readingPosition: { ...s.readingPosition, page } } : s); }} onLoaded={(id, count, filename) => { if (id !== current?.materialId) return; setMaterials(items => items.map(item => item.materialId === id ? { ...item, pageCount: count, title: filename || item.title } : item)); setMaterial(m => ({ materialId: current.materialId, versionId: current.versionId, status: 'ready', warnings:m?.warnings || [],error:m?.error || null,fileUrl:m?.fileUrl || api.fileUrl(id), title: m?.title || filename || current.title, pageCount: count })); }} />
@@ -228,12 +242,13 @@ export default function App({ guideRequested = false }: { guideRequested?: boole
               {!answer && !asking && !askError && <div className="ask-empty"><span className="mini-label">从一个好问题开始</span>{['这个概念的核心是什么？', '这一步推导为什么成立？', '材料里的例子说明了什么？'].map(q => <button key={q} disabled={!readyMaterial || locked} onClick={() => { setQuestion(q); questionInput.current?.focus(); }}><span>{q}</span><ArrowUpRight size={15} /></button>)}<div className="grounding-note"><BookOpen size={18} /><p>回答是起点，原文是依据。<br />材料未涵盖的内容，会明确说明。</p></div></div>}
               {asking && <div className="answer-loading" role="status"><LoaderCircle size={16} className="spin" /><strong>正在根据材料组织回答…</strong><p>可以继续阅读原文，完成后会在这里显示。</p><Skeleton /><Skeleton className="skeleton-short" /></div>}
               {askError && <Alert title="提问未完成" className="ask-error" action={<Button disabled={locked || !readyMaterial || !question.trim() || uploading || asking} onClick={() => void ask()}><RotateCw size={14} />重试</Button>}>{askError}<p>问题已保留，可修改后重试。</p></Alert>}
-              {answer && <div className="answer"><div className="question-bubble">{answeredQuestion}</div><p className="muted small">本次范围：{answer.selectedScope.map(s=>s.title).join("、") || "无可用材料"}</p><div className="answer-label"><Badge tone="warning">AI 草稿</Badge><span>请核对出处后改写</span></div>
+              {answer && <div className="answer"><div className="question-bubble">{answeredQuestion}</div><p className="muted small">本次范围：{answer.selectedScope.map(s=>s.title).join("、") || "无可用材料"}</p><div className="answer-label"><Badge tone="warning">AI 草稿</Badge><span>可直接创建卡片，建议核对出处</span></div>
                 {answer.answerSegments.map(segment => <div className="answer-segment" key={segment.id}><p>{segment.text}</p><div className="inline-citations">{segment.citationIds.map(id => { const c = answer.citations.find(c => c.id === id)!; const number = usedCitations.findIndex(item => item.id === id) + 1; return <button key={id} onClick={() => openCitation(c)} aria-label={`引用 ${number}，${c.title}，${pageLabel(c)}`}><span>{number}</span>{pageLabel(c)}<ArrowUpRight size={12} /></button>; })}</div></div>)}
                 {!answer.answerSegments.length && <div className="answer-empty" role="status">当前材料未提供可用回答。可换个问题，或上传包含相关内容的材料。</div>}
                 <SourceList refs={usedCitations} onOpen={openCitation} label="核对回答来源" showQuotes />
                 {answer.limitations.length > 0 && <Alert className="limitations" title="材料范围与不足" tone="warning">{answer.limitations.map((text, i) => <p key={i}>{text}</p>)}</Alert>}
-                <button className="button secondary new-card-action" disabled={locked || !answer.answerSegments.length} onClick={() => createFromAnswer()}><Plus size={16} />新建理解卡片<ArrowRight size={15} /></button>
+                <button className="button secondary new-card-action" disabled={locked || !answer.answerSegments.length} onClick={createCardDirectly}><Plus size={16} />直接创建卡片<ArrowRight size={15} /></button>
+                <button className="text-button" disabled={locked || !answer.answerSegments.length} onClick={() => createFromAnswer()}>编辑后创建</button>
               </div>}
             </div>
             <form className="question-composer" onSubmit={e => { e.preventDefault(); void ask(); }}>

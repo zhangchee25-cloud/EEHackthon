@@ -6,9 +6,15 @@
 
 把课程材料变成有出处、可改写、能持续复习的个人学习空间。围绕当前目标阅读材料、核对问答引用、用自己的话保存卡片，再用课程白板组织关系；目标与专注模式减少切换，改写、自检和下次目标积累个人理解。
 
-## 交付与最终验证
+## 本次更新（AI白板版 v2）
 
-最终前后端源码位于仓库根目录的 backend/ 和 frontend/，本 README 与队伍介绍、开源与 AI 使用声明、允许后续开源文件位于提交包最外层。接口以 [AB 本轮集成契约](docs/AB-本轮集成契约.md) 为准，详情见 [后端说明](backend/README.md)、[前端说明](frontend/README.md) 与 [B 验收记录](docs/B-验收记录.md)。源码中历史名称“知页／FreeBBS”不改变作品正式名称；本轮不接 FreeBBS。
+AI回答可直接创建卡片，原样保存无需改写。进入课程白板可让AI生成带引用的卡片、节点和关系，预览后一次追加保存；手动连线直接点击两个节点即可。旧手动编辑流程仍可使用。AI内容默认待复习，用户可以随时修改。
+
+本版同时包含PDF定位闪动修复。验证：后端58项、前端20项单测、20项桌面/手机UI、生产构建通过；真实模型自制讲义生成3张卡片2条连线并通过11项检查。详情见 [本轮更新](docs/AI白板与直接建卡更新.md)。
+
+## 先前版本验收记录
+
+最终前后端源码在 **[项目根目录](.)**，本 README 与队伍介绍、开源与 AI 使用声明、允许后续开源文件位于提交包最外层。接口以 [AB 本轮集成契约](docs/AB-本轮集成契约.md) 为准，详情见 [后端说明](backend/README.md)、[前端说明](frontend/README.md) 与 [B 验收记录](docs/B-验收记录.md)。源码中历史名称“知页／FreeBBS”不改变作品正式名称；本轮不接 FreeBBS。
 
 | 功能／检查 | 最终可核查结果 |
 | --- | --- |
@@ -28,7 +34,7 @@ UI自动测试使用显著标记的接口桩，其结果与真实学校／模型
 先进入提交包的 ``，创建Python环境并安装依赖。Windows PowerShell：
 
 ```powershell
-# 当前目录为源码根目录
+# 当前目录为项目根目录
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
 .\.venv\Scripts\python.exe -m playwright install chromium
@@ -40,7 +46,7 @@ Copy-Item backend/.env.example backend/.env
 macOS终端：
 
 ```bash
-# 当前目录为源码根目录
+# 当前目录为项目根目录
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r backend/requirements.txt
@@ -91,8 +97,3 @@ npm run dev
 运行数据存于 `backend/data/`，包括材料、SQLite状态及课程关联；关闭服务前后可恢复材料与学习状态，临时学校会话需本人重连。备份先正常停服务再复制完整data目录。状态与白板使用独立revision，冲突保留草稿，读取最新数据再由用户合并。
 
 提交源码不含真实密钥、Cookie、登录态、个人运行数据、教师原课件、node_modules、vendor或私有报告，仅附自制PDF。真实问答会把所选材料的相关文本发往本人配置的平台，学校材料须先取得相应授权。第三方来源、AI使用、可见开发对话及后续开源授权见包外层对应声明；无法由本README替代团队许可与完整对话审查。
-
-
-## GitHub完整交付
-
-本仓库main整合zch前端、lsx后端和最终本机联调修改，保留开发分支提交历史。正式提交快照：[校园学习生活赛道-507队-清大搭THUOPAL.zip](deliverables/校园学习生活赛道-507队-清大搭THUOPAL.zip)。该ZIP是17:58提交给组织方的冻结版本，SHA-256：`95651d51560125eafda203a7ac3ee97ec461800ecec613df31f9475823a64bea`。声明中的“未推送”是提交时历史状态。其他AI开发窗口完整记录仍未收齐。

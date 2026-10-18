@@ -7,6 +7,7 @@ export const CitationSchema = z.object({
   pageStart: page, pageEnd: page, quote: nonempty,
 }).refine(c => c.pageEnd >= c.pageStart, '引用结束页不能小于起始页');
 export const CardSchema = z.object({
+  origin: z.enum(['ai', 'manual', 'unknown']).optional(),
   id: nonempty, courseId: nonempty.nullable().default(null), title: nonempty, body: nonempty, sourceRefs: z.array(CitationSchema),
   reviewStatus: z.enum(['to_review', 'self_checked']), createdAt: nonempty, updatedAt: nonempty, selfCheckedAt: z.string().nullable().optional(),
 });
@@ -58,12 +59,13 @@ export function toMarkdown(state: StudyState) {
     '## 本次目标', block(state.goal || '尚未填写'), '', '## 下次继续', block(state.nextStep || '尚未填写'), '',
     ...state.cards.flatMap((card, i) => [
       `## ${i + 1}. ${card.title.replace(/[\r\n]/g, ' ')}`, '', block(card.body), '',
+      `内容来源：${card.origin === 'ai' ? 'AI 生成（可经用户编辑）' : card.origin === 'manual' ? '手动创建' : '未记录'}`,
       `复习状态：${card.reviewStatus === 'self_checked' ? '已自检（本人标记）' : '待复习'}`, `更新时间：${card.updatedAt}`, '',
       '### 来源', ...(card.sourceRefs.length ? card.sourceRefs.flatMap(c => [
         `- ${c.title.replace(/[\r\n]/g, ' ')} · 文件${pageLabel(c)} · 材料 ID：${c.materialId} · 版本：${c.versionId}`, block(c.quote), '',
       ]) : ['手写卡片，无材料来源。', '']),
     ]),
-    '---', '仅导出个人表述和引用摘录；不包含原 PDF。', '',
+    '---', '仅导出卡片正文和引用摘录；不包含原 PDF。', '',
   ].join('\n');
 }
 
@@ -85,3 +87,23 @@ export type LearnStatus = z.infer<typeof LearnStatusSchema>;
 export type ImportBatch = z.infer<typeof ImportBatchSchema>;
 export type Board = z.infer<typeof BoardSchema>;
 export type Scope = z.infer<typeof ScopeSchema>;
+
+export const BoardPreviewSchema = z.object({
+  previewId: nonempty, courseId: nonempty, cards: z.array(CardSchema),
+  nodes: z.array(z.object({id: nonempty, cardId: nonempty, x:z.number().finite(), y:z.number().finite()})),
+  edges: z.array(z.object({id:nonempty, source:nonempty, target:nonempty, label:z.string()})),
+  limitations:z.array(z.string()), selectedScope:z.array(ScopeSchema),
+}).superRefine((preview,ctx)=>{
+  const cards=new Set(preview.cards.map(c=>c.id));
+  const nodes=new Set(preview.nodes.map(n=>n.id));
+  if(cards.size!==preview.cards.length || nodes.size!==preview.nodes.length ||
+     preview.cards.some(c=>c.courseId!==preview.courseId) ||
+     preview.nodes.some(n=>!cards.has(n.cardId)) ||
+     preview.edges.some(e=>!nodes.has(e.source)||!nodes.has(e.target)||e.source===e.target))
+    ctx.addIssue({code:'custom',message:'AI白板的课程、节点或连线不匹配'});
+  for(const card of preview.cards) for(const c of card.sourceRefs) {
+    if(!preview.selectedScope.some(s=>s.materialId===c.materialId && s.versionId===c.versionId))
+      ctx.addIssue({code:'custom',message:'AI白板引用不属于生成范围'});
+  }
+});
+export type BoardPreview = z.infer<typeof BoardPreviewSchema>;

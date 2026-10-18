@@ -13,7 +13,8 @@ BACKEND_FILES = (
     'requirements-dev.txt', '.env.example', 'README.md',
     'tests/__init__.py', 'tests/fixtures.py', 'tests/test_backend.py',
     'tests/test_courses.py', 'tests/test_state_board_extra.py',
-    'tests/test_course_qa_extra.py', 'tests/test_learn_transport.py', 'tests/verify_handoff.py',
+    'tests/test_course_qa_extra.py', 'tests/test_learn_transport.py', 'tests/test_ai_board.py', 'tests/verify_handoff.py',
+    'verify_ai_board.py',
 )
 EXAMPLE_FILES = ('README.md', 'signals-systems-demo.pdf')
 DOC_FILES = ('B-验收记录.md',)

@@ -30,6 +30,9 @@ class CourseStore:
                     id TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL,
                     signature TEXT NOT NULL, body TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS boards (course_id TEXT PRIMARY KEY, body TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS board_previews (
+                    id TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL, signature TEXT NOT NULL,
+                    course_id TEXT NOT NULL, body TEXT NOT NULL, applied TEXT);
             """)
             # Interrupted work is explicit and retryable; ready items are untouched.
             for row in db.execute("SELECT id,body FROM import_batches").fetchall():

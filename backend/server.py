@@ -205,6 +205,10 @@ def create_server(config, service=None, port=None):
                     self.json(service.courses.retry(match[1], self.read_json()))
                 elif method == "POST" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/ask", path)):
                     self.json(service.courses.ask(match[1], self.read_json()))
+                elif method == "POST" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/board/generate", path)):
+                    self.json(service.courses.generate_board(match[1], self.read_json()))
+                elif method == "POST" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/board/apply", path)):
+                    self.json(service.courses.apply_board(match[1], self.read_json()))
                 elif method == "PUT" and (match := re.fullmatch(r"/api/courses/([A-Za-z0-9_-]+)/board", path)):
                     self.json(service.courses.repo.save_board(match[1], self.read_json(), identifier, text_field))
                 elif method == "POST" and path == "/api/materials":

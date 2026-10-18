@@ -286,6 +286,11 @@ class WorkspaceService:
                 raise AppError("INVALID_SOURCE", "卡片来源必须为数组且不超过 50 条。", 422)
             refs = [self.validate_source(source) for source in refs]
             prior = old_cards.get(card_id)
+            origin = card.get("origin", (prior or {}).get("origin", "unknown"))
+            if origin in (None, ""):
+                origin = (prior or {}).get("origin") or "unknown"
+            if origin not in ("ai", "manual", "unknown"):
+                raise AppError("INVALID_INPUT", "卡片来源标记不合法。", 422)
             course_id = card.get("courseId", (prior or {}).get("courseId"))
             if course_id is not None:
                 self.courses.repo.course(identifier(course_id, "card.courseId"))
@@ -300,9 +305,10 @@ class WorkspaceService:
             elif not prior or prior["reviewStatus"] != "self_checked":
                 checked = timestamp
             changed = not prior or any((prior["title"] != title, prior["body"] != content,
-                        prior["reviewStatus"] != status, prior["sourceRefs"] != refs, prior.get("courseId") != course_id))
+                        prior["reviewStatus"] != status, prior["sourceRefs"] != refs, prior.get("courseId") != course_id,
+                        prior.get("origin", "unknown") != origin))
             result["cards"].append({"id": card_id, "courseId": course_id, "title": title, "body": content, "sourceRefs": refs,
-                "reviewStatus": status, "createdAt": created, "updatedAt": timestamp if changed else prior["updatedAt"],
+                "origin": origin, "reviewStatus": status, "createdAt": created, "updatedAt": timestamp if changed else prior["updatedAt"],
                 "selfCheckedAt": checked})
         return result
 
@@ -317,6 +323,7 @@ class WorkspaceService:
                  "本次目标：" + state["goal"], "下次继续：" + state["nextStep"], ""]
         for card in state["cards"]:
             lines.extend(["## " + card["title"].replace("\n", " "), "", card["body"], "",
+                          "内容来源：" + {"ai": "AI 生成", "manual": "本人撰写", "unknown": "未标记"}.get(card.get("origin"), "未标记"),
                           "复习状态：" + ("已自检" if card["reviewStatus"] == "self_checked" else "待复习"),
                           "创建时间：" + card["createdAt"], "更新时间：" + card["updatedAt"], ""])
             if card["sourceRefs"]:
@@ -325,5 +332,5 @@ class WorkspaceService:
                     lines.extend([f"- {source['title']}，文件第 {source['pageStart']} 页；版本 {source['versionId']}",
                                   "  原文摘录：" + source["quote"].replace("\n", " "), ""])
             else:
-                lines.extend(["来源：手写理解卡片，无材料来源。", ""])
+                lines.extend(["材料引用：无材料来源。", ""])
         return "\n".join(lines)

@@ -6,6 +6,7 @@ const empty=()=>({revision:0,activeCourseId:null,goal:'',nextStep:'',readingPosi
 let state=empty(),failSave=false,auth='connected',failBoard=false;
 const courses=[{courseId:'course-a',semesterId:'fall',upstreamCourseId:'up-a',name:'电路原理'},{courseId:'course-b',semesterId:'fall',upstreamCourseId:'up-b',name:'信号与系统'}];
 const materials=new Map(), batches=new Map(),boards=new Map(),requests=new Map();
+const previews=new Map(), appliedPreviews=new Map();
 const pdf=createTestPdf();
 const material=(id,title)=>({materialId:id,versionId:'fixture-v1',title,status:'ready',pageCount:3,error:null,warnings:[],fileUrl:`/api/materials/${id}/file`});
 function files(courseId){return ['讲义一.pdf','讲义二.pdf','需重试.pdf','需登录.pdf','录像.mp4'].map((title,i)=>({fileId:`${courseId}-f${i}`,courseId,title,fileType:i===4?'mp4':'pdf',sizeBytes:1000,supported:i!==4,unsupportedReason:i===4?'暂不支持视频':null}));}
@@ -30,7 +31,7 @@ createServer(async(req,res)=>{
   const url=new URL(req.url,`http://127.0.0.1:${port}`),path=url.pathname;
   let body={};if(['POST','PUT'].includes(req.method)&&!path.endsWith('/materials')){let raw='';for await(const c of req)raw+=c;try{body=JSON.parse(raw||'{}');}catch{return error('Invalid JSON',400);}}
   if(path==='/api/health')return json({status:'ok',mode:'test-fixture',limits:{maxUploadBytes:5*1024*1024,maxPages:20}});
-  if(path==='/__fixture__/reset'){state=empty();materials.clear();batches.clear();boards.clear();requests.clear();failSave=false;failBoard=false;auth='connected';return json(state);}
+  if(path==='/__fixture__/reset'){state=empty();materials.clear();batches.clear();boards.clear();requests.clear();previews.clear();appliedPreviews.clear();failSave=false;failBoard=false;auth='connected';return json(state);}
   if(path==='/__fixture__/fail-save'){failSave=url.searchParams.get('enabled')==='1';return json({failSave});}
   if(path==='/__fixture__/fail-board'){failBoard=url.searchParams.get('enabled')==='1';return json({failBoard});}
   if(path==='/__fixture__/conflict'){state.revision++;state.goal='其他窗口的目标';return json(state);}
@@ -56,6 +57,35 @@ createServer(async(req,res)=>{
   }
   const batchMatch=path.match(/^\/api\/learn\/imports\/([^/]+)(\/retry)?$/);
   if(batchMatch){const b=batches.get(batchMatch[1]);if(!b)return error('Unknown batch',404);if(batchMatch[2]){for(const i of b.items)if(body.itemIds.includes(i.itemId)){i.status='pending';i.retried=true;i.error=null;}b.tick=0;b.status='running';return json(b);}return json(advance(b));}
+  const aiMatch=path.match(/^\/api\/courses\/([^/]+)\/board\/(generate|apply)$/);
+  if(aiMatch && req.method==='POST'){
+    const [,courseId,action]=aiMatch;
+    if(action==='generate'){
+      if(body.instruction?.includes('失败'))return error('接口测试：AI生成失败',502);
+      const requestKey=`board:${courseId}:${body.requestId}`;
+      if(requests.has(requestKey))return json(requests.get(requestKey));
+      const scope=[...materials.values()].filter(m=>m.courseId===courseId).map(({materialId,versionId,title})=>({materialId,versionId,title}));
+      if(!scope.length)return error('请先导入课程材料',422);
+      const now=new Date().toISOString(),previewId=crypto.randomUUID();
+      const cards=['电荷','电压','储能'].map((title,i)=>({id:crypto.randomUUID(),courseId,origin:'ai',title,body:`【接口测试桩】${title}的学习要点`,sourceRefs:[{...scope[i%scope.length],id:`s-${i}`,pageStart:1,pageEnd:1,quote:'Energy is stored in the electric field.'}],reviewStatus:'to_review',selfCheckedAt:null,createdAt:now,updatedAt:now}));
+      const nodes=cards.map((c,i)=>({id:crypto.randomUUID(),cardId:c.id,x:24+i*270,y:24}));
+      const edges=[{id:crypto.randomUUID(),source:nodes[0].id,target:nodes[1].id,label:'影响'},{id:crypto.randomUUID(),source:nodes[1].id,target:nodes[2].id,label:'决定'}];
+      const result={previewId,courseId,cards,nodes,edges,selectedScope:scope,limitations:['接口测试桩，仅验证交互。']};
+      previews.set(previewId,result);requests.set(requestKey,result);return json(result);
+    }
+    const preview=previews.get(body.previewId);
+    if(!preview||preview.courseId!==courseId)return error('生成预览不存在',404);
+    if(appliedPreviews.has(body.previewId))return json(appliedPreviews.get(body.previewId));
+    if(failSave||failBoard)return error('接口测试：白板保存失败');
+    const old=boards.get(courseId)||{courseId,revision:0,nodes:[],edges:[],updatedAt:null};
+    if(body.stateRevision!==state.revision)return error('学习状态版本冲突',409,'STATE_CONFLICT');
+    if(body.boardRevision!==old.revision)return error('白板版本冲突',409,'BOARD_CONFLICT');
+    const time=new Date().toISOString();
+    state={...state,cards:[...state.cards,...preview.cards],revision:state.revision+1,updatedAt:time};
+    const offset=old.nodes.length?Math.max(...old.nodes.map(n=>n.y))+240:0;
+    const next={...old,nodes:[...old.nodes,...preview.nodes.map(n=>({...n,y:n.y+offset}))],edges:[...old.edges,...preview.edges],revision:old.revision+1,updatedAt:time};
+    boards.set(courseId,next);const result={state,board:next};appliedPreviews.set(body.previewId,result);return json(result);
+  }
   const courseMatch=path.match(/^\/api\/courses\/([^/]+)\/(materials|ask|board)$/);
   if(courseMatch){
     const [,courseId,action]=courseMatch;

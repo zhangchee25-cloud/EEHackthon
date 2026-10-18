@@ -246,6 +246,151 @@ class CourseService:
         finally:
             w.ask_lock.release()
 
+    def generate_board(self, course_id, body):
+        """Generate a persisted, idempotent preview; never mutate a user's board."""
+        from .service import identifier, text_field
+        from .model import SYSTEM_PROMPT
+        w = self.workspace
+        if not isinstance(body, dict):
+            raise AppError("INVALID_INPUT", "请求必须是 JSON 对象。", 422)
+        self.repo.course(course_id)
+        request_id = identifier(body.get("requestId"), "requestId")
+        instruction = text_field(body.get("instruction", ""), "instruction", 2000).strip() or "梳理课程核心概念及其关系"
+        scope = body.get("materialScope")
+        if scope is not None and (not isinstance(scope, list) or not 1 <= len(scope) <= 200):
+            raise AppError("INVALID_SCOPE", "材料范围必须为非空数组。", 422)
+        materials = [m for m in self.repo.materials(course_id, current=True) if m["status"] == "ready"]
+        if scope is not None:
+            materials, seen = [], set()
+            for entry in scope:
+                if not isinstance(entry, dict):
+                    raise AppError("INVALID_SCOPE", "材料范围格式不合法。", 422)
+                mid = identifier(entry.get("materialId"), "materialId")
+                vid = identifier(entry.get("versionId"), "versionId")
+                if (mid, vid) in seen or not self.repo.contains(course_id, mid, vid):
+                    raise AppError("INVALID_SCOPE", "材料重复或不属于当前课程。", 422)
+                seen.add((mid, vid))
+                material = w.store.material(mid)
+                if material["status"] != "ready" or material["versionId"] != vid:
+                    raise AppError("INVALID_SCOPE", "材料版本未就绪。", 422)
+                materials.append(material)
+            scope = sorted(seen)
+        signature = json.dumps([course_id, instruction, scope], ensure_ascii=False)
+        if not w.ask_lock.acquire(timeout=0.1):
+            raise AppError("MODEL_BUSY", "已有生成任务正在处理，请稍后重试。", 429)
+        try:
+            with w.store.connect() as db:
+                prior = db.execute("SELECT signature,body FROM board_previews WHERE request_id=?", (request_id,)).fetchone()
+            if prior:
+                if prior["signature"] != signature:
+                    raise AppError("REQUEST_ID_CONFLICT", "同一 requestId 不能用于不同生成要求。", 409)
+                return json.loads(prior["body"])
+            all_chunks = [dict(c, courseId=course_id) for m in materials for c in self.repo.chunks(m)]
+            # An overview needs representative evidence even when its generic query
+            # has no lexical overlap with a course's subject vocabulary.
+            chunks, size = [], 2
+            groups = [self.repo.chunks(m) for m in materials]
+            for depth in range(max((len(g) for g in groups), default=0)):
+                for group in groups:
+                    if depth < len(group):
+                        chunk = dict(group[depth], courseId=course_id)
+                        cost = len(json.dumps(chunk, ensure_ascii=False)) + 2
+                        if size + cost <= w.config.max_context_chars and len(chunks) < 30:
+                            chunks.append(chunk)
+                            size += cost
+            if not chunks:
+                raise AppError("NO_READY_MATERIALS", "当前课程没有可用于生成白板的已就绪材料。", 422)
+            used = {(c["materialId"], c["versionId"]) for c in chunks}
+            selected = [m for m in materials if (m["materialId"], m["versionId"]) in used]
+            prompt = SYSTEM_PROMPT + '''\n本任务生成课程知识白板。最多生成 8 个概念卡片，至少 1 个。
+将每个概念作为 answerSegments 的一段，增加 title 字段（简短标题，最多80字）。
+增加 relations 数组，每项 {"source":0,"target":1,"label":"关系说明"}，label 最多100字。
+source/target 是 answerSegments 数组的从0开始索引；只连接不同概念，不得重复。
+关系必须有对应卡片原文依据，不能为了连线编造关系；无依据则 relations=[]。
+不得输出任何持久化ID、坐标、课程标识；不要把无关概念串成链。'''
+            output, usage = w.model.generate(instruction, chunks, system_prompt=prompt)
+            verified = w.verify_answer(output, selected[0], chunks, materials=selected)
+            raw_segments = output.get("answerSegments", [])
+            relations = output.get("relations", [])
+            if len(raw_segments) > 8 or not isinstance(relations, list) or len(relations) > 32:
+                raise AppError("INVALID_BOARD_GENERATION", "模型生成的白板规模或关系格式不合法。", 502)
+            stamp, cards, nodes, edges = now(), [], [], []
+            citations = {c["id"]: c for c in verified["citations"]}
+            for index, segment in enumerate(verified["answerSegments"]):
+                title = raw_segments[index].get("title")
+                if not isinstance(title, str) or not title.strip() or len(title) > 120:
+                    raise AppError("INVALID_BOARD_GENERATION", "模型卡片标题不合法。", 502)
+                card_id, node_id = "card_" + uuid.uuid4().hex, "node_" + uuid.uuid4().hex
+                cards.append({"id": card_id, "courseId": course_id, "title": title.strip(), "body": segment["text"],
+                              "sourceRefs": [citations[cid] for cid in segment["citationIds"]], "origin": "ai",
+                              "reviewStatus": "to_review", "createdAt": stamp, "updatedAt": stamp, "selfCheckedAt": None})
+                nodes.append({"id": node_id, "cardId": card_id, "x": 40 + index % 3 * 360, "y": 40 + index // 3 * 320})
+            pairs = set()
+            for relation in relations:
+                if not isinstance(relation, dict):
+                    raise AppError("INVALID_BOARD_GENERATION", "模型关系格式不合法。", 502)
+                source, target, label = relation.get("source"), relation.get("target"), relation.get("label")
+                if (type(source) is not int or type(target) is not int or not 0 <= source < len(nodes)
+                        or not 0 <= target < len(nodes) or source == target or (source, target) in pairs
+                        or not isinstance(label, str) or not label.strip() or len(label) > 100):
+                    raise AppError("INVALID_BOARD_GENERATION", "模型关系端点或说明不合法。", 502)
+                pairs.add((source, target))
+                edges.append({"id": "edge_" + uuid.uuid4().hex, "source": nodes[source]["id"],
+                              "target": nodes[target]["id"], "label": label.strip()})
+            if len(chunks) < len(all_chunks):
+                verified["limitations"].append("白板基于预算内各材料的代表片段生成，未读取全部内容。")
+            result = {"previewId": "preview_" + uuid.uuid4().hex, "courseId": course_id, "cards": cards,
+                      "nodes": nodes, "edges": edges, "limitations": verified["limitations"], "selectedScope": verified["selectedScope"]}
+            with w.store.connect() as db:
+                db.execute("INSERT INTO board_previews VALUES (?,?,?,?,?,NULL)",
+                           (result["previewId"], request_id, signature, course_id, json.dumps(result, ensure_ascii=False)))
+            return result
+        finally:
+            w.ask_lock.release()
+
+    def apply_board(self, course_id, body):
+        """Atomically append preview cards and graph, preserving both revisions."""
+        from .service import identifier
+        if not isinstance(body, dict):
+            raise AppError("INVALID_INPUT", "请求必须是 JSON 对象。", 422)
+        self.repo.course(course_id)
+        preview_id = identifier(body.get("previewId"), "previewId")
+        if any(type(body.get(k)) is not int or body[k] < 0 for k in ("stateRevision", "boardRevision")):
+            raise AppError("REVISION_REQUIRED", "应用白板必须带当前状态与白板 revision。", 422)
+        with self.workspace.store.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT * FROM board_previews WHERE id=? AND course_id=?", (preview_id, course_id)).fetchone()
+            if not row:
+                raise AppError("PREVIEW_NOT_FOUND", "生成预览不存在或不属于本课程。", 404)
+            state = json.loads(db.execute("SELECT body FROM workspace WHERE id=1").fetchone()[0])
+            board_row = db.execute("SELECT body FROM boards WHERE course_id=?", (course_id,)).fetchone()
+            board = json.loads(board_row[0]) if board_row else {"courseId": course_id, "revision": 0, "nodes": [], "edges": [], "updatedAt": None}
+            if row["applied"]:
+                # Return current state on retries, never resurrect a stale snapshot.
+                return {"state": state, "board": board}
+            if state["revision"] != body["stateRevision"]:
+                raise AppError("STATE_CONFLICT", "学习状态已更新，请刷新后重新应用预览。", 409, {"currentRevision": state["revision"]})
+            if board["revision"] != body["boardRevision"]:
+                raise AppError("BOARD_CONFLICT", "白板已更新，请刷新后重新应用预览。", 409, {"currentRevision": board["revision"]})
+            preview = json.loads(row["body"])
+            if not preview["cards"]:
+                raise AppError("NO_BOARD_EVIDENCE", "材料依据不足，预览中没有可创建卡片。", 422)
+            if len(board["nodes"]) + len(preview["nodes"]) > 200 or len(board["edges"]) + len(preview["edges"]) > 1000:
+                raise AppError("INVALID_BOARD", "应用预览会超过白板容量，请先整理现有白板。", 422)
+            proposed = dict(state, cards=state["cards"] + preview["cards"])
+            clean = self.workspace.validate_state(proposed, state)
+            clean.update(revision=state["revision"] + 1, updatedAt=now())
+            offset = max((n["y"] for n in board["nodes"]), default=-360) + 360
+            if any(abs(n["y"] + offset) > 1000000 for n in preview["nodes"]):
+                raise AppError("INVALID_BOARD", "现有白板位置超出可追加范围，请先整理节点位置。", 422)
+            board["nodes"].extend(dict(n, y=n["y"] + offset) for n in preview["nodes"])
+            board["edges"].extend(preview["edges"])
+            board.update(revision=board["revision"] + 1, updatedAt=now())
+            db.execute("UPDATE workspace SET body=? WHERE id=1", (json.dumps(clean, ensure_ascii=False),))
+            db.execute("INSERT OR REPLACE INTO boards VALUES (?,?)", (course_id, json.dumps(board, ensure_ascii=False)))
+            db.execute("UPDATE board_previews SET applied=? WHERE id=?", (now(), preview_id))
+            return {"state": clean, "board": board}
+
     def close(self):
         self.stop.set()
         for worker in list(self.workers.values()):

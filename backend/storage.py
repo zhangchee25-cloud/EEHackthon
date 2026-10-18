@@ -38,6 +38,7 @@ class Store:
             state.setdefault("activeCourseId", None)
             for card in state["cards"]:
                 card.setdefault("courseId", None)
+                card.setdefault("origin", "unknown")
             db.execute("UPDATE workspace SET body=? WHERE id=1", (json.dumps(state, ensure_ascii=False),))
             db.execute("UPDATE materials SET status='failed', error=? WHERE status='processing'",
                        ("上次解析被中断，请重新上传此文件。",))
@@ -137,6 +138,11 @@ class Store:
 
     def citation_exists(self, citation):
         with self.connect() as db:
+            for row in db.execute("SELECT body FROM board_previews"):
+                for card in json.loads(row[0])["cards"]:
+                    for stored in card["sourceRefs"]:
+                        if stored["id"] == citation["id"]:
+                            return stored == citation
             for row in db.execute("SELECT result FROM answers"):
                 for stored in json.loads(row[0])["citations"]:
                     if stored["id"] == citation["id"]:
