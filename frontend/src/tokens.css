@@ -1,0 +1,23 @@
+/* Adapted from docs/ui-references/zhiye-ui-tokens.css. Shared by home and workspace. */
+:root {
+  --study-bg: #f7f8f5;
+  --study-surface: #fff;
+  --study-text: #242b27;
+  --study-muted: #69736b;
+  --study-border: #e1e6df;
+  --study-primary: #3f6251;
+  --study-primary-text: #fff;
+  --study-selected: #eaf1eb;
+  --study-danger: #ad3535;
+  --study-radius-panel: 12px;
+  --study-radius-control: 8px;
+  --study-space-1: 8px;
+  --study-space-2: 12px;
+  --study-space-3: 16px;
+  --study-space-4: 24px;
+  --study-space-5: 32px;
+  --study-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --study-font-body: 14px;
+  --study-font-caption: 12px;
+  --study-font-reader: 16px;
+}
